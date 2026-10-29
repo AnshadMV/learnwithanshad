@@ -34,6 +34,8 @@ export function shuffleArray<T>(arr: T[]): T[] {
   return a
 }
 
+export const shuffle = shuffleArray
+
 export function pickRandom<T>(arr: T[], count: number): T[] {
   return shuffleArray(arr).slice(0, count)
 }

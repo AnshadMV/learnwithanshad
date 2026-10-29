@@ -13,6 +13,9 @@ export const ALL_GAMES: GameCardInfo[] = [
   { slug: 'memory-cards', name: 'Memory Cards', description: 'Flip pairs of colorful cards to find matching Arabic letters!', category: 'Recognition', icon: '🃏', color: '#EA4335' },
   { slug: 'letter-detective', name: 'Letter Detective', description: 'Count how many target letters are hiding in a mystery line!', category: 'Recognition', icon: '🔎', color: '#8B5CF6' },
   { slug: 'letter-bingo', name: 'Letter Bingo', description: 'Listen to the letter call and mark your card to shout Bingo!', category: 'Recognition', icon: '🎱', color: '#EC4899' },
+  { slug: 'star-constellation', name: 'Star Constellation', description: 'Gaze into the night sky and connect luminous stars into Arabic letters!', category: 'Recognition', icon: '🌌', color: '#F59E0B' },
+  { slug: 'solar-orbit', name: 'Solar Orbit Explorer', description: 'Align orbiting planets displaying matching letters in deep space!', category: 'Recognition', icon: '🪐', color: '#6366F1' },
+  { slug: 'lantern-glow', name: 'Ramadan Lantern Glow', description: 'Light up festive courtyard fanous lanterns with matching letters!', category: 'Recognition', icon: '🏮', color: '#D97706' },
 
   // Writing & Forms
   { slug: 'trace-letter', name: 'Trace the Letter', description: 'Follow guided strokes on a digital canvas to write Arabic letters!', category: 'Writing', icon: '✏️', color: '#4285F4' },
@@ -21,6 +24,10 @@ export const ALL_GAMES: GameCardInfo[] = [
   { slug: 'shape-match', name: 'Letter Shape Match', description: 'Match isolated, initial, medial, and final forms of each letter!', category: 'Writing', icon: '🔷', color: '#EA4335' },
   { slug: 'complete-word', name: 'Complete the Word', description: 'Fill in the missing letter to complete illustrated Arabic words!', category: 'Writing', icon: '📝', color: '#8B5CF6' },
   { slug: 'letter-puzzle', name: 'Arabic Letter Puzzle', description: 'Rearrange scrambled tiles to reassemble the target Arabic letter!', category: 'Writing', icon: '🧸', color: '#EC4899' },
+  { slug: 'castle-keymaker', name: 'Castle Gate Keymaker', description: 'Forge and turn keys transforming isolated forms into connected shapes!', category: 'Writing', icon: '🗝️', color: '#D97706' },
+  { slug: 'cookie-oven', name: "Baker's Cookie Oven", description: 'Bake Arabic letter cookies by tracing outlines with sweet strawberry icing!', category: 'Writing', icon: '🍪', color: '#F59E0B' },
+  { slug: 'mosaic-tile', name: 'Mosaic Tile Artisan', description: 'Decorate palace zellij mosaics with handcrafted Arabic geometric tiles!', category: 'Writing', icon: '🎨', color: '#0D9488' },
+  { slug: 'gear-factory', name: 'Clockwork Gear Factory', description: 'Interlock and rotate machine cogs stamped with matching letter forms!', category: 'Writing', icon: '⚙️', color: '#64748B' },
 
   // Listening & Vocabulary
   { slug: 'listen-choose', name: 'Listen and Choose', description: 'Listen to the authentic pronunciation and pick the correct letter!', category: 'Listening', icon: '👂', color: '#4285F4' },
@@ -29,6 +36,9 @@ export const ALL_GAMES: GameCardInfo[] = [
   { slug: 'word-builder', name: 'Word Builder', description: 'Drag and arrange Arabic letter blocks in order to form vocabulary words!', category: 'Listening', icon: '🔤', color: '#EA4335' },
   { slug: 'listen-match', name: 'Listen and Match', description: 'Listen to spoken Arabic vocabulary and match it to its picture!', category: 'Listening', icon: '🎤', color: '#8B5CF6' },
   { slug: 'position-game', name: 'Beginning, Middle, or End?', description: 'Where is the letter hiding in this word? Choose its position!', category: 'Listening', icon: '📍', color: '#EC4899' },
+  { slug: 'fruit-blender', name: 'Fruit Juice Blender', description: 'Catch fruits whose Arabic names start with the spoken phonetic sound!', category: 'Listening', icon: '🍹', color: '#F43F5E' },
+  { slug: 'market-bazaar', name: 'Market Bazaar Trader', description: 'Spend golden coins to buy items starting with target letter sounds!', category: 'Listening', icon: '🎪', color: '#B45309' },
+  { slug: 'raindrop-rhythm', name: 'Raindrop Rhythm', description: 'Tap musical raindrops falling from the sky in time with letter beats!', category: 'Listening', icon: '🌧️', color: '#0284C7' },
 
   // Arcade & Challenge
   { slug: 'balloon-pop', name: 'Letter Balloon Pop', description: 'Pop floating balloons carrying the target letter before time runs out!', category: 'Arcade', icon: '🎈', color: '#4285F4' },
@@ -37,6 +47,18 @@ export const ALL_GAMES: GameCardInfo[] = [
   { slug: 'rocket-race', name: 'Rocket Letter Race', description: 'Fuel your rocket by answering correctly and race to the moon!', category: 'Arcade', icon: '🚀', color: '#EA4335' },
   { slug: 'letter-catcher', name: 'Letter Catcher', description: 'Move your basket to catch falling letters and avoid distractions!', category: 'Arcade', icon: '🤸', color: '#8B5CF6' },
   { slug: 'daily-quest', name: 'Daily Letter Quest', description: 'Complete a special daily sequence of four challenges for stars!', category: 'Arcade', icon: '⭐', color: '#EC4899' },
+  { slug: 'desert-caravan', name: 'Desert Caravan Sorter', description: 'Sort and load cargo boxes onto camels crossing the desert dunes!', category: 'Arcade', icon: '🐪', color: '#D97706' },
+  { slug: 'gem-miner', name: 'Gem Miner Drill', description: 'Drill through crystal caves to mine sparkling Arabic letter gems!', category: 'Arcade', icon: '💎', color: '#8B5CF6' },
+  { slug: 'magic-carpet', name: 'Magic Carpet Flight', description: 'Steer a flying carpet through glowing sky rings stamped with letters!', category: 'Arcade', icon: '🧞‍♂️', color: '#0EA5E9' },
+  { slug: 'frog-leap', name: 'Lilypad Frog Leap', description: 'Help the cheerful frog hop across river lilypads with correct letters!', category: 'Arcade', icon: '🐸', color: '#10B981' },
+  { slug: 'pirate-island', name: 'Pirate Island Excavation', description: 'Dig up pirate treasure chests stamped with target letter shapes!', category: 'Arcade', icon: '🏴‍☠️', color: '#B45309' },
+  { slug: 'submarine-sonar', name: 'Submarine Sonar Ping', description: 'Send sonar pings into deep oceans to find target letter creatures!', category: 'Arcade', icon: '🚢', color: '#06B6D4' },
+  { slug: 'train-coupler', name: 'Train Cargo Coupler', description: 'Couple train cars in correct alphabet order to get the express rolling!', category: 'Arcade', icon: '🚂', color: '#EF4444' },
+  { slug: 'kite-flying', name: 'Kite Flying Breeze', description: 'Steer kites into summer wind gusts displaying the target letter!', category: 'Arcade', icon: '🪁', color: '#14B8A6' },
+  { slug: 'dolphin-hoop', name: 'Dolphin Hoop Acrobat', description: 'Direct acrobat dolphins to jump through floating hoops of Arabic letters!', category: 'Arcade', icon: '🐬', color: '#06B6D4' },
+  { slug: 'jungle-vine', name: 'Jungle Vine Swinger', description: 'Swing a playful monkey through jungle vines marked with target letters!', category: 'Arcade', icon: '🐒', color: '#059669' },
+  { slug: 'critter-whack', name: 'Sand Dune Critter Whack', description: 'Gently tap cheeky sand jerboas popping out of burrows with letters!', category: 'Arcade', icon: '🐹', color: '#D97706' },
+  { slug: 'rainbow-bridge', name: 'Rainbow Bridge Builder', description: 'Build stepping stones across the waterfall rainbow with glowing letters!', category: 'Arcade', icon: '🌈', color: '#EC4899' },
 ]
 
 const CATEGORIES = ['All', 'Recognition', 'Writing', 'Listening', 'Arcade']
@@ -63,13 +85,13 @@ export default function GamesLibraryPage() {
       <div className="text-center max-w-2xl mx-auto space-y-3">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-100 text-brand-green font-bold text-sm">
           <Gamepad2 className="w-4 h-4" />
-          <span>24 Distinct Educational Games</span>
+          <span>46 Distinct Educational Games</span>
         </div>
         <h1 className="text-4xl sm:text-5xl font-black text-[#243247] font-display">
           Educational Games Arcade 🎮
         </h1>
         <p className="text-gray-600 text-lg">
-          Master Arabic letters through playful games, puzzles, racing, and treasure quests!
+          Master Arabic letters through 46 playful games, flying carpets, deep-sea sonars, and constellation quests!
         </p>
       </div>
 

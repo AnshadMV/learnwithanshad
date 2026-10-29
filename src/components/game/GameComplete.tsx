@@ -10,19 +10,28 @@ import { formatDuration } from '@/lib/utils'
 
 interface GameCompleteProps {
   result: GameResult
-  onReplay: () => void
+  onReplay?: () => void
+  onPlayAgain?: () => void
   onNext?: () => void
-  onHome: () => void
+  onHome?: () => void
+  onBackToGames?: () => void
+  gameName?: string
 }
 
 export default function GameComplete({
   result,
   onReplay,
+  onPlayAgain,
   onNext,
   onHome,
+  onBackToGames,
+  gameName,
 }: GameCompleteProps) {
   const { celebrateBig } = useConfetti()
   const { playComplete } = useSound()
+
+  const handleReplay = onPlayAgain || onReplay || (() => window.location.reload())
+  const handleHome = onBackToGames || onHome || (() => {})
 
   useEffect(() => {
     celebrateBig()
@@ -86,7 +95,7 @@ export default function GameComplete({
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <Button
               variant="secondary"
-              onClick={onReplay}
+              onClick={handleReplay}
               className="w-full flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
@@ -104,7 +113,7 @@ export default function GameComplete({
             ) : (
               <Button
                 variant="primary"
-                onClick={onHome}
+                onClick={handleHome}
                 className="w-full flex items-center justify-center gap-2"
               >
                 <Home className="w-4 h-4" />

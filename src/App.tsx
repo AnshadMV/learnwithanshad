@@ -46,6 +46,29 @@ const TreasureChestGame = lazy(() => import('@/pages/games/TreasureChestGame'))
 const RocketRaceGame = lazy(() => import('@/pages/games/RocketRaceGame'))
 const LetterCatcherGame = lazy(() => import('@/pages/games/LetterCatcherGame'))
 const DailyQuestGame = lazy(() => import('@/pages/games/DailyQuestGame'))
+// 22 New Games
+const DesertCaravanGame = lazy(() => import('@/pages/games/DesertCaravanGame'))
+const GemMinerGame = lazy(() => import('@/pages/games/GemMinerGame'))
+const MagicCarpetGame = lazy(() => import('@/pages/games/MagicCarpetGame'))
+const FruitBlenderGame = lazy(() => import('@/pages/games/FruitBlenderGame'))
+const StarConstellationGame = lazy(() => import('@/pages/games/StarConstellationGame'))
+const FrogLeapGame = lazy(() => import('@/pages/games/FrogLeapGame'))
+const PirateIslandGame = lazy(() => import('@/pages/games/PirateIslandGame'))
+const SubmarineSonarGame = lazy(() => import('@/pages/games/SubmarineSonarGame'))
+const TrainCouplerGame = lazy(() => import('@/pages/games/TrainCouplerGame'))
+const KiteFlyingGame = lazy(() => import('@/pages/games/KiteFlyingGame'))
+const CastleKeymakerGame = lazy(() => import('@/pages/games/CastleKeymakerGame'))
+const CookieOvenGame = lazy(() => import('@/pages/games/CookieOvenGame'))
+const RaindropRhythmGame = lazy(() => import('@/pages/games/RaindropRhythmGame'))
+const DolphinHoopGame = lazy(() => import('@/pages/games/DolphinHoopGame'))
+const MarketBazaarGame = lazy(() => import('@/pages/games/MarketBazaarGame'))
+const SolarOrbitGame = lazy(() => import('@/pages/games/SolarOrbitGame'))
+const JungleVineGame = lazy(() => import('@/pages/games/JungleVineGame'))
+const MosaicTileGame = lazy(() => import('@/pages/games/MosaicTileGame'))
+const CritterWhackGame = lazy(() => import('@/pages/games/CritterWhackGame'))
+const RainbowBridgeGame = lazy(() => import('@/pages/games/RainbowBridgeGame'))
+const LanternGlowGame = lazy(() => import('@/pages/games/LanternGlowGame'))
+const GearFactoryGame = lazy(() => import('@/pages/games/GearFactoryGame'))
 
 function LoadingScreen() {
   return (
@@ -142,6 +165,29 @@ function AppRoutes() {
         <Route path="/games/rocket-race" element={<Layout><RocketRaceGame /></Layout>} />
         <Route path="/games/letter-catcher" element={<Layout><LetterCatcherGame /></Layout>} />
         <Route path="/games/daily-quest" element={<Layout><DailyQuestGame /></Layout>} />
+        {/* 22 New Games */}
+        <Route path="/games/desert-caravan" element={<Layout><DesertCaravanGame /></Layout>} />
+        <Route path="/games/gem-miner" element={<Layout><GemMinerGame /></Layout>} />
+        <Route path="/games/magic-carpet" element={<Layout><MagicCarpetGame /></Layout>} />
+        <Route path="/games/fruit-blender" element={<Layout><FruitBlenderGame /></Layout>} />
+        <Route path="/games/star-constellation" element={<Layout><StarConstellationGame /></Layout>} />
+        <Route path="/games/frog-leap" element={<Layout><FrogLeapGame /></Layout>} />
+        <Route path="/games/pirate-island" element={<Layout><PirateIslandGame /></Layout>} />
+        <Route path="/games/submarine-sonar" element={<Layout><SubmarineSonarGame /></Layout>} />
+        <Route path="/games/train-coupler" element={<Layout><TrainCouplerGame /></Layout>} />
+        <Route path="/games/kite-flying" element={<Layout><KiteFlyingGame /></Layout>} />
+        <Route path="/games/castle-keymaker" element={<Layout><CastleKeymakerGame /></Layout>} />
+        <Route path="/games/cookie-oven" element={<Layout><CookieOvenGame /></Layout>} />
+        <Route path="/games/raindrop-rhythm" element={<Layout><RaindropRhythmGame /></Layout>} />
+        <Route path="/games/dolphin-hoop" element={<Layout><DolphinHoopGame /></Layout>} />
+        <Route path="/games/market-bazaar" element={<Layout><MarketBazaarGame /></Layout>} />
+        <Route path="/games/solar-orbit" element={<Layout><SolarOrbitGame /></Layout>} />
+        <Route path="/games/jungle-vine" element={<Layout><JungleVineGame /></Layout>} />
+        <Route path="/games/mosaic-tile" element={<Layout><MosaicTileGame /></Layout>} />
+        <Route path="/games/critter-whack" element={<Layout><CritterWhackGame /></Layout>} />
+        <Route path="/games/rainbow-bridge" element={<Layout><RainbowBridgeGame /></Layout>} />
+        <Route path="/games/lantern-glow" element={<Layout><LanternGlowGame /></Layout>} />
+        <Route path="/games/gear-factory" element={<Layout><GearFactoryGame /></Layout>} />
 
         {/* 404 */}
         <Route path="*" element={<Layout><NotFoundPage /></Layout>} />

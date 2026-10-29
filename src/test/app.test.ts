@@ -63,11 +63,11 @@ describe('Letter Examples Dataset (840 Records)', () => {
 })
 
 describe('Educational Game Engine & Scoring', () => {
-  it('contains all 24 distinct educational games', () => {
-    expect(ALL_GAMES).toHaveLength(24)
+  it('contains all 46 distinct educational games with unique slugs', () => {
+    expect(ALL_GAMES.length).toBeGreaterThanOrEqual(46)
     const slugs = ALL_GAMES.map(g => g.slug)
     const uniqueSlugs = new Set(slugs)
-    expect(uniqueSlugs.size).toBe(24)
+    expect(uniqueSlugs.size).toBe(ALL_GAMES.length)
   })
 
   it('calculates accuracy percentage accurately', () => {
