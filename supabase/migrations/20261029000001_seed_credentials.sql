@@ -9,7 +9,7 @@ DECLARE
   v_teacher_id UUID := 'a1111111-1111-1111-1111-111111111111';
   v_student_id UUID := 'b2222222-2222-2222-2222-222222222222';
   v_teacher_email TEXT := 'teacher@school.edu';
-  v_student_email TEXT := 'zaid@student.arabiclearn.local';
+  v_student_email TEXT := 'zaid@student.arabiclearn.com';
   v_teacher_pw TEXT := 'teacher123';
   v_student_pw TEXT := 'pin_1234';
 BEGIN

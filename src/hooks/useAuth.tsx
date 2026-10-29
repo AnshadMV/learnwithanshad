@@ -274,8 +274,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signInWithStudentPin = useCallback(async (username: string, pin: string) => {
-    const cleanUser = username.toLowerCase().replace(/[^a-z0-9_-]/g, '')
-    const studentEmail = `${cleanUser}@student.arabiclearn.local`
+    let cleanUser = username.trim().toLowerCase()
+    if (cleanUser.includes('@')) {
+      cleanUser = cleanUser.split('@')[0]
+    }
+    cleanUser = cleanUser.replace(/[^a-z0-9_-]/g, '')
+    const studentEmail = `${cleanUser}@student.arabiclearn.com`
     const password = `pin_${pin}`
 
     try {

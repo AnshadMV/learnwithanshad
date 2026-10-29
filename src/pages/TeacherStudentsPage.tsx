@@ -85,8 +85,12 @@ export default function TeacherStudentsPage() {
     setErrorMsg(null)
     setSuccessMsg(null)
 
-    const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_-]/g, '')
-    const studentEmail = `${cleanUsername}@student.arabiclearn.local`
+    let cleanUsername = username.toLowerCase().trim()
+    if (cleanUsername.includes('@')) {
+      cleanUsername = cleanUsername.split('@')[0]
+    }
+    cleanUsername = cleanUsername.replace(/[^a-z0-9_-]/g, '')
+    const studentEmail = `${cleanUsername}@student.arabiclearn.com`
 
     try {
       // 1. Attempt Supabase registration
