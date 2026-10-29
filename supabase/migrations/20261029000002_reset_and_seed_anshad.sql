@@ -1,9 +1,5 @@
 -- Migration: 20261029000002_reset_and_seed_anshad.sql
--- 1. Resets/cleans all auth users, profiles, classrooms, sessions
--- 2. Seeds:
---    Teacher: anshad@gmail.com (pass: Anshadv@123)
---    Classroom: Level 1
---    Student: fathima (fathima@gmail.com, pass: fathima123)
+-- Fixes "Database error querying schema" by ensuring tokens are empty strings '' instead of NULL.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -20,7 +16,7 @@ DECLARE
   v_student_pw    TEXT := 'fathima123';
   v_student_name  TEXT := 'Fathima';
 BEGIN
-  -- 1. Clean up student activities, games, classrooms, and profiles
+  -- 1. Clean previous user activities, progress, classrooms, and profiles
   DELETE FROM public.student_activity_events;
   DELETE FROM public.student_achievements;
   DELETE FROM public.game_sessions;
@@ -29,11 +25,11 @@ BEGIN
   DELETE FROM public.classrooms;
   DELETE FROM public.profiles;
 
-  -- 2. Clean up Auth tables
+  -- 2. Clean previous Auth tables
   DELETE FROM auth.identities;
   DELETE FROM auth.users;
 
-  -- 3. Insert Teacher (Anshad) into auth.users
+  -- 3. Insert Teacher (Anshad) into auth.users with empty string tokens (avoids Go scan NULL error)
   INSERT INTO auth.users (
     id,
     instance_id,
@@ -45,6 +41,10 @@ BEGIN
     is_super_admin,
     role,
     aud,
+    confirmation_token,
+    recovery_token,
+    email_change,
+    email_change_token_new,
     created_at,
     updated_at
   ) VALUES (
@@ -58,6 +58,10 @@ BEGIN
     false,
     'authenticated',
     'authenticated',
+    '',
+    '',
+    '',
+    '',
     NOW(),
     NOW()
   );
@@ -102,7 +106,7 @@ BEGIN
     NOW()
   );
 
-  -- 6. Insert Classroom "Level 1" owned by Teacher
+  -- 6. Insert Classroom "Level 1" owned by Teacher Anshad
   INSERT INTO public.classrooms (
     id,
     teacher_id,
@@ -123,7 +127,7 @@ BEGIN
     NOW()
   );
 
-  -- 7. Insert Student (Fathima) into auth.users
+  -- 7. Insert Student (Fathima) into auth.users with empty string tokens
   INSERT INTO auth.users (
     id,
     instance_id,
@@ -135,6 +139,10 @@ BEGIN
     is_super_admin,
     role,
     aud,
+    confirmation_token,
+    recovery_token,
+    email_change,
+    email_change_token_new,
     created_at,
     updated_at
   ) VALUES (
@@ -148,6 +156,10 @@ BEGIN
     false,
     'authenticated',
     'authenticated',
+    '',
+    '',
+    '',
+    '',
     NOW(),
     NOW()
   );
