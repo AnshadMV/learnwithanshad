@@ -194,19 +194,158 @@ export default function LetterPage() {
           )}
         </motion.section>
 
+        {/* ── Letter-Specific Games Grid ── */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.42 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-black text-[#243247] flex items-center gap-2">
+              <span>🎮 Practice Games for</span>
+              <span className="font-arabic text-3xl text-brand-blue" dir="rtl">{letter.letter}</span>
+              <span className="text-base text-gray-400 font-medium">({letter.name_english})</span>
+            </h2>
+            <Link
+              to="/games"
+              className="text-xs font-bold text-brand-blue hover:underline flex items-center gap-1"
+            >
+              <span>View all 24+ games</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {/* 1. Tracing */}
+            <Link
+              to={`/games/trace-letter?letter=${letter.id}`}
+              className="group bg-gradient-to-br from-amber-50 to-orange-100 border-2 border-amber-200 hover:border-amber-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">✍️</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
+                  Tracing
+                </span>
+              </div>
+              <h3 className="font-bold text-gray-800 group-hover:text-amber-800 transition-colors">
+                Trace Letter {letter.name_english}
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Guide your pencil along the curves of <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span>!
+              </p>
+            </Link>
+
+            {/* 2. Balloon Pop */}
+            <Link
+              to={`/games/balloon-pop?letter=${letter.id}`}
+              className="group bg-gradient-to-br from-rose-50 to-pink-100 border-2 border-rose-200 hover:border-rose-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">🎈</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">
+                  Arcade
+                </span>
+              </div>
+              <h3 className="font-bold text-gray-800 group-hover:text-rose-800 transition-colors">
+                Pop {letter.name_english} Balloons
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Spot and pop only balloons floating with <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span>!
+              </p>
+            </Link>
+
+            {/* 3. Letter Safari */}
+            <Link
+              to={`/games/letter-safari?letter=${letter.id}`}
+              className="group bg-gradient-to-br from-emerald-50 to-teal-100 border-2 border-emerald-200 hover:border-emerald-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">🦁</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800">
+                  Safari
+                </span>
+              </div>
+              <h3 className="font-bold text-gray-800 group-hover:text-emerald-800 transition-colors">
+                {letter.name_english} Safari Hunt
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Explore the savanna and uncover hidden <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span> tracks.
+              </p>
+            </Link>
+
+            {/* 4. Letter Catcher */}
+            <Link
+              to={`/games/letter-catcher?letter=${letter.id}`}
+              className="group bg-gradient-to-br from-sky-50 to-blue-100 border-2 border-sky-200 hover:border-sky-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">🧺</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-200 text-sky-800">
+                  Action
+                </span>
+              </div>
+              <h3 className="font-bold text-gray-800 group-hover:text-sky-800 transition-colors">
+                Catch the {letter.name_english} Stars
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Catch falling letter <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span> gems into your magic basket!
+              </p>
+            </Link>
+
+            {/* 5. Shape & Connector */}
+            <Link
+              to={`/games/shape-match?letter=${letter.id}`}
+              className="group bg-gradient-to-br from-purple-50 to-indigo-100 border-2 border-purple-200 hover:border-purple-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">🧩</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-800">
+                  Shaping
+                </span>
+              </div>
+              <h3 className="font-bold text-gray-800 group-hover:text-purple-800 transition-colors">
+                Connect {letter.name_english} Forms
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Match isolated, initial, medial, and final forms of <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span>.
+              </p>
+            </Link>
+
+            {/* 6. Picture Match */}
+            <Link
+              to={`/games/letter-picture-match?letter=${letter.id}`}
+              className="group bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 hover:border-yellow-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-2xl">🖼️</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-yellow-200 text-yellow-800">
+                  Vocabulary
+                </span>
+              </div>
+              <h3 className="font-bold text-gray-800 group-hover:text-yellow-800 transition-colors">
+                {letter.name_english} Word Match
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Match words starting with <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span> to colorful illustrations!
+              </p>
+            </Link>
+          </div>
+        </motion.section>
+
         {/* ── Practice button ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45 }}
-          className="text-center"
+          transition={{ delay: 0.48 }}
+          className="text-center pt-2"
         >
           <Link
             to="/games"
-            className="inline-flex items-center gap-3 bg-green-500 hover:bg-green-600 text-white font-extrabold text-lg px-8 py-4 rounded-2xl shadow-lg shadow-green-300 transition-all hover:scale-105 active:scale-95"
+            className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg px-8 py-4 rounded-2xl shadow-xl shadow-emerald-200 transition-all hover:scale-105 active:scale-95"
           >
             <Gamepad2 className="w-6 h-6" />
-            Practice Games 🎮
+            Explore Full Arcade (24+ Games) 🚀
           </Link>
         </motion.div>
 

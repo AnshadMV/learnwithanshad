@@ -100,6 +100,55 @@ function soundClick(): void {
   playTone({ startFreq: 200, duration: 0.07, volume: 0.15, type: 'square' })
 }
 
+function soundPop(): void {
+  // Bubbly pop sound
+  playTone({ startFreq: 300, endFreq: 600, duration: 0.08, volume: 0.2, type: 'sine' })
+}
+
+function soundStar(): void {
+  // Twinkle high bell
+  playTone({ startFreq: 880, endFreq: 1100, duration: 0.15, volume: 0.18, type: 'triangle' })
+  playTone({ startFreq: 1320, duration: 0.2, volume: 0.22, delay: 0.08, type: 'sine' })
+}
+
+function soundCoin(): void {
+  // Sparkly coin pickup: B5 -> E6
+  playTone({ startFreq: 987.77, duration: 0.08, volume: 0.25, type: 'sine' })
+  playTone({ startFreq: 1318.51, duration: 0.25, volume: 0.28, delay: 0.08, type: 'sine' })
+}
+
+function soundWhoosh(): void {
+  // Gentle airy frequency sweep
+  playTone({ startFreq: 300, endFreq: 750, duration: 0.18, volume: 0.12, type: 'sine' })
+}
+
+function soundSparkle(): void {
+  // Magical harp cascade
+  const chords = [523.25, 659.25, 783.99, 1046.5, 1318.51]
+  chords.forEach((freq, idx) => {
+    playTone({ startFreq: freq, duration: 0.14, volume: 0.15, delay: idx * 0.05, type: 'triangle' })
+  })
+}
+
+function soundBoing(): void {
+  // Fun spring wobble
+  playTone({ startFreq: 180, endFreq: 320, duration: 0.12, volume: 0.2, type: 'sine' })
+  playTone({ startFreq: 320, endFreq: 220, duration: 0.16, volume: 0.18, delay: 0.1, type: 'triangle' })
+}
+
+function soundFanfare(): void {
+  // Grand victory fanfare
+  const melody = [
+    { freq: 392.0, dur: 0.12, delay: 0 },
+    { freq: 523.25, dur: 0.12, delay: 0.12 },
+    { freq: 659.25, dur: 0.12, delay: 0.24 },
+    { freq: 783.99, dur: 0.35, delay: 0.36 },
+  ]
+  melody.forEach(n => {
+    playTone({ startFreq: n.freq, duration: n.dur, volume: 0.24, delay: n.delay, type: 'triangle' })
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
@@ -109,6 +158,13 @@ export interface UseSoundReturn {
   playWrong: () => void
   playComplete: () => void
   playClick: () => void
+  playPop: () => void
+  playStar: () => void
+  playCoin: () => void
+  playWhoosh: () => void
+  playSparkle: () => void
+  playBoing: () => void
+  playFanfare: () => void
   isMuted: boolean
   toggleMute: () => void
 }
@@ -146,6 +202,27 @@ export function useSound(): UseSoundReturn {
   const playWrong    = useCallback(() => guard(soundWrong),    [guard])
   const playComplete = useCallback(() => guard(soundComplete), [guard])
   const playClick    = useCallback(() => guard(soundClick),    [guard])
+  const playPop      = useCallback(() => guard(soundPop),      [guard])
+  const playStar     = useCallback(() => guard(soundStar),     [guard])
+  const playCoin     = useCallback(() => guard(soundCoin),     [guard])
+  const playWhoosh   = useCallback(() => guard(soundWhoosh),   [guard])
+  const playSparkle  = useCallback(() => guard(soundSparkle),  [guard])
+  const playBoing    = useCallback(() => guard(soundBoing),    [guard])
+  const playFanfare  = useCallback(() => guard(soundFanfare),  [guard])
 
-  return { playCorrect, playWrong, playComplete, playClick, isMuted, toggleMute }
+  return {
+    playCorrect,
+    playWrong,
+    playComplete,
+    playClick,
+    playPop,
+    playStar,
+    playCoin,
+    playWhoosh,
+    playSparkle,
+    playBoing,
+    playFanfare,
+    isMuted,
+    toggleMute,
+  }
 }
