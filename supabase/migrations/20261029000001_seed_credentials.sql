@@ -1,6 +1,6 @@
 -- Migration: 20261029000001_seed_credentials.sql
 -- Direct credential provisioning for Supabase auth.users, auth.identities, and public.profiles
--- Fixes "Database error querying schema" by ensuring auth.identities is fully linked.
+-- Uses UUID type matching across auth.users and auth.identities
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -13,13 +13,19 @@ DECLARE
   v_teacher_pw TEXT := 'teacher123';
   v_student_pw TEXT := 'pin_1234';
 BEGIN
-  -- 1. Clean up any existing broken entries
-  DELETE FROM auth.identities WHERE user_id IN (
+  -- 1. Remove previous partial entries cleanly by UUID
+  DELETE FROM auth.identities 
+  WHERE user_id IN (
     SELECT id FROM auth.users WHERE email IN (v_teacher_email, v_student_email)
-  ) OR id IN (v_teacher_id::text, v_student_id::text);
+  ) OR user_id IN (v_teacher_id, v_student_id);
 
-  DELETE FROM public.profiles WHERE id IN (v_teacher_id, v_student_id) OR email IN (v_teacher_email, v_student_email);
-  DELETE FROM auth.users WHERE email IN (v_teacher_email, v_student_email) OR id IN (v_teacher_id, v_student_id);
+  DELETE FROM public.profiles 
+  WHERE id IN (v_teacher_id, v_student_id) 
+     OR email IN (v_teacher_email, v_student_email);
+
+  DELETE FROM auth.users 
+  WHERE email IN (v_teacher_email, v_student_email) 
+     OR id IN (v_teacher_id, v_student_id);
 
   -- 2. Insert Teacher into auth.users
   INSERT INTO auth.users (
@@ -50,7 +56,7 @@ BEGIN
     NOW()
   );
 
-  -- 3. Insert Teacher into auth.identities (CRITICAL for GoTrue password login)
+  -- 3. Insert Teacher into auth.identities (id is UUID in Supabase)
   INSERT INTO auth.identities (
     id,
     user_id,
@@ -61,7 +67,7 @@ BEGIN
     created_at,
     updated_at
   ) VALUES (
-    v_teacher_id::text,
+    v_teacher_id,
     v_teacher_id,
     json_build_object('sub', v_teacher_id::text, 'email', v_teacher_email)::jsonb,
     'email',
@@ -100,7 +106,7 @@ BEGIN
     NOW()
   );
 
-  -- 5. Insert Student into auth.identities (CRITICAL for GoTrue password login)
+  -- 5. Insert Student into auth.identities
   INSERT INTO auth.identities (
     id,
     user_id,
@@ -111,7 +117,7 @@ BEGIN
     created_at,
     updated_at
   ) VALUES (
-    v_student_id::text,
+    v_student_id,
     v_student_id,
     json_build_object('sub', v_student_id::text, 'email', v_student_email)::jsonb,
     'email',
