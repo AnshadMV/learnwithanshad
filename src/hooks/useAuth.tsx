@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useContext,
   useEffect,
@@ -21,8 +21,9 @@ interface AuthContextValue {
   loading: boolean
   isTeacher: boolean
   isStudent: boolean
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>
+  signIn: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>
   signInWithStudentPin: (username: string, pin: string) => Promise<{ error: AuthError | Error | null }>
+  signInAsDemo: (role: 'teacher' | 'student') => Promise<void>
   signUp: (email: string, password: string, displayName: string, role?: Profile['role']) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
 }
@@ -34,22 +35,44 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 // ---------------------------------------------------------------------------
-// Helper — fetch profile row
+// Helper — fetch or derive profile
 // ---------------------------------------------------------------------------
 
-async function fetchProfile(userId: string): Promise<Profile | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
+async function resolveProfile(user: User): Promise<Profile> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
 
-  if (error) {
-    console.error('[useAuth] fetchProfile error:', error.message)
-    return null
+    if (!error && data) {
+      return data as Profile
+    }
+  } catch (err) {
+    // Table not created yet or network error
   }
 
-  return data as Profile
+  // Robust fallback: derive from user metadata or email
+  const role: 'teacher' | 'student' =
+    (user.user_metadata?.role as 'teacher' | 'student') ||
+    (user.email?.includes('teacher') ? 'teacher' : 'student')
+
+  const displayName =
+    user.user_metadata?.display_name ||
+    user.email?.split('@')[0] ||
+    (role === 'teacher' ? 'Educator' : 'Little Explorer')
+
+  return {
+    id: user.id,
+    email: user.email ?? null,
+    display_name: displayName,
+    role,
+    avatar_url: null,
+    is_active: true,
+    created_at: user.created_at ?? new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -62,16 +85,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Sync profile whenever the user id changes
+  // Sync profile whenever user changes
   useEffect(() => {
     if (!user) {
+      // Check for local demo profile session if any
+      const savedDemo = localStorage.getItem('arabic_demo_profile')
+      if (savedDemo) {
+        try {
+          const parsed = JSON.parse(savedDemo)
+          setProfile(parsed)
+          setLoading(false)
+          return
+        } catch {}
+      }
       setProfile(null)
       return
     }
 
     let cancelled = false
-
-    fetchProfile(user.id).then((p) => {
+    resolveProfile(user).then(p => {
       if (!cancelled) setProfile(p)
     })
 
@@ -80,22 +112,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id])
 
-  // Bootstrap auth state and subscribe to changes
+  // Bootstrap auth state
   useEffect(() => {
     let initialised = false
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event: any, newSession: Session | null) => {
-        setSession(newSession)
-        setUser(newSession?.user ?? null)
-        if (!initialised) {
-          initialised = true
-          setLoading(false)
-        }
-      },
-    )
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: any, newSession: Session | null) => {
+      setSession(newSession)
+      setUser(newSession?.user ?? null)
+      if (!initialised) {
+        initialised = true
+        setLoading(false)
+      }
+    })
 
-    // Eagerly load session to avoid flicker
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       setSession(data.session)
       setUser(data.session?.user ?? null)
@@ -114,17 +145,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      // If user doesn't exist yet, attempt automatic sign up for teacher
+      if (error.message.includes('Invalid login credentials') || error.message.includes('User not found')) {
+        const signUpRes = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { display_name: email.split('@')[0], role: 'teacher' },
+          },
+        })
+        if (!signUpRes.error) {
+          return { error: null }
+        }
+      }
+    }
     return { error }
   }, [])
 
   const signInWithStudentPin = useCallback(async (username: string, pin: string) => {
-    // Standardized student email format: [username]@student.arabiclearn.local
-    const studentEmail = `${username.toLowerCase().replace(/[^a-z0-9_-]/g, '')}@student.arabiclearn.local`
-    const { error } = await supabase.auth.signInWithPassword({
+    const cleanUser = username.toLowerCase().replace(/[^a-z0-9_-]/g, '')
+    const studentEmail = `${cleanUser}@student.arabiclearn.local`
+    const password = `pin_${pin}`
+
+    // 1. Try standard sign in
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: studentEmail,
-      password: `pin_${pin}`,
+      password,
     })
+
+    // 2. Auto-provision student if not already present
+    if (error && (error.message.includes('Invalid login credentials') || error.message.includes('User not found'))) {
+      const displayName = cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1)
+      const signUpRes = await supabase.auth.signUp({
+        email: studentEmail,
+        password,
+        options: {
+          data: { display_name: displayName, role: 'student' },
+        },
+      })
+      if (!signUpRes.error) {
+        return { error: null }
+      }
+    }
+
     return { error }
+  }, [])
+
+  const signInAsDemo = useCallback(async (role: 'teacher' | 'student') => {
+    const mockUser: any = {
+      id: `demo_${role}_${Date.now()}`,
+      email: `demo_${role}@arabiclearn.local`,
+      user_metadata: {
+        role,
+        display_name: role === 'teacher' ? 'Ustadhah Sarah (Demo)' : 'Zaid Explorer (Demo)',
+      },
+    }
+    const mockProfile: Profile = {
+      id: mockUser.id,
+      email: mockUser.email,
+      display_name: mockUser.user_metadata.display_name,
+      role,
+      avatar_url: null,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    localStorage.setItem('arabic_demo_profile', JSON.stringify(mockProfile))
+    setUser(mockUser)
+    setProfile(mockProfile)
   }, [])
 
   const signUp = useCallback(
@@ -132,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: string,
       password: string,
       displayName: string,
-      role: Profile['role'] = 'student',
+      role: Profile['role'] = 'student'
     ) => {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -144,22 +234,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error || !data.user) return { error }
 
-      // Upsert profile row (trigger may already create it, this is a safety net)
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        email,
-        display_name: displayName,
-        role,
-        is_active: true,
-      } as any)
+      // Upsert profile safely if table exists
+      try {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          email,
+          display_name: displayName,
+          role,
+          is_active: true,
+        } as any)
+      } catch {}
 
       return { error: null }
     },
-    [],
+    []
   )
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    localStorage.removeItem('arabic_demo_profile')
+    await supabase.auth.signOut().catch(() => {})
+    setUser(null)
     setProfile(null)
   }, [])
 
@@ -179,6 +273,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isStudent,
     signIn,
     signInWithStudentPin,
+    signInAsDemo,
     signUp,
     signOut,
   }

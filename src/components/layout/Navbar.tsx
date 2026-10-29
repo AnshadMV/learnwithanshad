@@ -1,212 +1,219 @@
-import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { Radio, Users, Settings, LogOut, LayoutDashboard, Sparkles } from 'lucide-react'
 
 interface NavLink {
   label: string
   to: string
+  highlight?: boolean
 }
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const GUEST_LINKS: NavLink[] = [
-  { label: 'Home',     to: '/' },
-  { label: 'Alphabet', to: '/alphabet' },
-  { label: 'Games',    to: '/games' },
-]
-
-const AUTH_LINKS: NavLink[] = [
-  ...GUEST_LINKS,
-  { label: 'Dashboard', to: '/dashboard' },
-]
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
-
-function Logo() {
-  return (
-    <Link
-      to="/"
-      className="flex items-center gap-2 font-extrabold text-lg text-blue-700 hover:text-blue-800 transition-colors shrink-0"
-    >
-      <span className="text-2xl" role="img" aria-label="star">⭐</span>
-      <span className="hidden sm:block leading-tight">
-        Arabic Learning
-        <br />
-        <span className="text-sm font-semibold text-blue-500">Adventure</span>
-      </span>
-    </Link>
-  )
-}
-
-function NavItem({ link, onClick }: { link: NavLink; onClick?: () => void }) {
-  const { pathname } = useLocation()
-  const isActive = pathname === link.to || (link.to !== '/' && pathname.startsWith(link.to))
-
-  return (
-    <Link
-      to={link.to}
-      onClick={onClick}
-      className={cn(
-        'px-3 py-1.5 rounded-xl font-semibold text-sm transition-colors',
-        isActive
-          ? 'bg-blue-100 text-blue-700'
-          : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-      )}
-    >
-      {link.label}
-    </Link>
-  )
-}
-
-function UserMenu({ onSignOut }: { onSignOut: () => void }) {
-  const { profile } = useAuth()
-  const [open, setOpen] = useState(false)
-
-  const initials = (profile?.display_name ?? 'U')
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-haspopup="true"
-        className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-xl',
-          'text-sm font-semibold text-gray-700',
-          'hover:bg-gray-100 transition-colors',
-          'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-        )}
-      >
-        <span
-          className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold shrink-0"
-          aria-hidden="true"
-        >
-          {initials}
-        </span>
-        <span className="hidden md:block max-w-[120px] truncate">
-          {profile?.display_name ?? 'User'}
-        </span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          aria-hidden="true"
-          className={cn('transition-transform', open && 'rotate-180')}
-        >
-          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 py-1 z-50">
-          <Link
-            to="/profile"
-            onClick={() => setOpen(false)}
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
-          >
-            My Profile
-          </Link>
-          <button
-            onClick={() => { setOpen(false); onSignOut() }}
-            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-          >
-            Sign Out
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Navbar
-// ---------------------------------------------------------------------------
 
 export function Navbar() {
-  const { user, signOut } = useAuth()
+  const { user, profile, isTeacher, isStudent, signOut } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
 
-  const links = user ? AUTH_LINKS : GUEST_LINKS
+  const guestLinks: NavLink[] = [
+    { label: 'Home', to: '/' },
+    { label: 'Alphabet', to: '/alphabet' },
+    { label: 'Word Explorer', to: '/words' },
+    { label: 'Games', to: '/games' },
+  ]
 
-  const closeMobile = () => setMobileOpen(false)
+  const studentLinks: NavLink[] = [
+    { label: 'Home', to: '/' },
+    { label: 'Alphabet', to: '/alphabet' },
+    { label: 'Games', to: '/games' },
+    { label: 'My Dashboard', to: '/student/dashboard' },
+    { label: 'My Progress', to: '/student/progress' },
+  ]
+
+  const teacherLinks: NavLink[] = [
+    { label: 'Home', to: '/' },
+    { label: 'Alphabet', to: '/alphabet' },
+    { label: 'Games', to: '/games' },
+    { label: 'Dashboard', to: '/teacher/dashboard' },
+    { label: 'Live Monitor 🔴', to: '/teacher/live', highlight: true },
+    { label: 'Students', to: '/teacher/students' },
+    { label: 'Reports', to: '/teacher/reports' },
+  ]
+
+  const activeLinks = isTeacher ? teacherLinks : isStudent ? studentLinks : guestLinks
+
+  const handleSignOut = async () => {
+    setUserDropdownOpen(false)
+    await signOut()
+    navigate('/')
+  }
+
+  const initials = (profile?.display_name || user?.email?.split('@')[0] || 'U')
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
-    <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-sm">
+    <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-blue-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-
           {/* Logo */}
-          <Logo />
+          <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
+            <span className="text-3xl group-hover:scale-110 transition-transform select-none">⭐</span>
+            <div className="leading-tight">
+              <span className="font-black text-lg text-brand-blue font-display block">
+                Arabic Learning
+              </span>
+              <span className="text-[11px] font-extrabold text-sunny-600 tracking-wider uppercase block -mt-1">
+                Adventure
+              </span>
+            </div>
+          </Link>
 
-          {/* Desktop links */}
-          <div className="hidden md:flex items-center gap-1">
-            {links.map((link) => (
-              <NavItem key={link.to} link={link} />
-            ))}
+          {/* Desktop Links */}
+          <div className="hidden lg:flex items-center gap-1">
+            {activeLinks.map(link => {
+              const isActive =
+                pathname === link.to || (link.to !== '/' && pathname.startsWith(link.to))
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={cn(
+                    'px-3.5 py-1.5 rounded-xl font-bold text-sm transition-all select-none',
+                    link.highlight && 'text-rose-600 hover:bg-rose-50',
+                    isActive
+                      ? 'bg-blue-100 text-brand-blue shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  )}
+                >
+                  {link.label}
+                </Link>
+              )
+            })}
           </div>
 
-          {/* Right side */}
-          <div className="flex items-center gap-2">
+          {/* Right actions */}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/settings"
+              className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"
+              title="Settings & Accessibility"
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
+
             {user ? (
-              <UserMenu onSignOut={signOut} />
+              <div className="relative">
+                <button
+                  onClick={() => setUserDropdownOpen(o => !o)}
+                  className="flex items-center gap-2 p-1.5 pl-2.5 rounded-2xl bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-200"
+                >
+                  <span className="text-xs font-bold text-gray-700 max-w-[100px] truncate">
+                    {profile?.display_name || user.email?.split('@')[0]}
+                  </span>
+                  <div className="w-7 h-7 rounded-xl bg-brand-blue text-white font-bold text-xs flex items-center justify-center">
+                    {initials}
+                  </div>
+                </button>
+
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-fade-in">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <div className="text-xs font-bold text-gray-800 truncate">
+                        {profile?.display_name || 'Adventurer'}
+                      </div>
+                      <div className="text-[10px] text-gray-400 capitalize">
+                        Role: {profile?.role || (isTeacher ? 'Teacher' : 'Student')}
+                      </div>
+                    </div>
+
+                    <Link
+                      to={isTeacher ? '/teacher/dashboard' : '/student/dashboard'}
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-brand-blue"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      <span>My Dashboard</span>
+                    </Link>
+
+                    {isTeacher && (
+                      <Link
+                        to="/teacher/live"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50"
+                      >
+                        <Radio className="w-4 h-4 text-rose-500" />
+                        <span>Live Monitor 🔴</span>
+                      </Link>
+                    )}
+
+                    <Link
+                      to="/settings"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Settings & Sound</span>
+                    </Link>
+
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50 border-t border-gray-100 mt-1"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <Link
                 to="/login"
-                className={cn(
-                  'px-4 py-2 rounded-xl text-sm font-semibold',
-                  'bg-blue-500 text-white',
-                  'hover:bg-blue-600 transition-colors shadow-sm',
-                )}
+                className="px-5 py-2 rounded-2xl text-sm font-extrabold bg-brand-blue text-white hover:bg-blue-600 shadow-md transition-all active:scale-95"
               >
                 Sign In
               </Link>
             )}
 
-            {/* Mobile hamburger */}
+            {/* Mobile menu button */}
             <button
-              className={cn(
-                'md:hidden p-2 rounded-xl text-gray-600',
-                'hover:bg-gray-100 transition-colors',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
-              )}
-              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((o) => !o)}
+              onClick={() => setMobileOpen(o => !o)}
+              className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-100"
+              aria-label="Toggle menu"
             >
-              {mobileOpen ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-                  <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              )}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                {mobileOpen ? (
+                  <>
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </>
+                ) : (
+                  <>
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </>
+                )}
+              </svg>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {/* Mobile Drawer */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-1">
-          {links.map((link) => (
-            <NavItem key={link.to} link={link} onClick={closeMobile} />
+        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-1.5 shadow-lg">
+          {activeLinks.map(link => (
+            <Link
+              key={link.to}
+              to={link.to}
+              onClick={() => setMobileOpen(false)}
+              className="px-3.5 py-2 rounded-xl text-sm font-bold text-gray-700 hover:bg-blue-50 hover:text-brand-blue"
+            >
+              {link.label}
+            </Link>
           ))}
         </div>
       )}

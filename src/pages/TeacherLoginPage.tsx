@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { GraduationCap, ArrowRight, Mail, Lock, ShieldCheck } from 'lucide-react'
+import { GraduationCap, ArrowRight, Mail, Lock, ShieldCheck, Play } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
 
@@ -10,7 +10,7 @@ export default function TeacherLoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { signIn } = useAuth()
+  const { signIn, signInAsDemo } = useAuth()
   const navigate = useNavigate()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -36,6 +36,12 @@ export default function TeacherLoginPage() {
     }
   }
 
+  const handleDemoTeacherLogin = async () => {
+    setLoading(true)
+    await signInAsDemo('teacher')
+    navigate('/teacher/dashboard')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 via-indigo-50 to-sky flex items-center justify-center p-4">
       <motion.div
@@ -43,7 +49,7 @@ export default function TeacherLoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border-2 border-blue-100"
       >
-        <div className="text-center space-y-2 mb-8">
+        <div className="text-center space-y-2 mb-6">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-100 text-brand-blue flex items-center justify-center text-3xl shadow-sm">
             <GraduationCap className="w-8 h-8" />
           </div>
@@ -107,15 +113,24 @@ export default function TeacherLoginPage() {
           </Button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-100 space-y-3 text-center">
-          <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span>Authorized school credentials only</span>
-          </div>
+        {/* 1-Click Demo Teacher */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleDemoTeacherLogin}
+            className="w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+          >
+            <Play className="w-3.5 h-3.5" />
+            <span>1-Click Educator Demo Login (Sarah)</span>
+          </Button>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-gray-100 space-y-2 text-center">
           <div className="text-xs text-gray-400">
-            Looking for student login?{' '}
+            Student account?{' '}
             <Link to="/student/login" className="font-bold text-brand-blue hover:underline">
-              Student portal
+              Student portal login
             </Link>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Sparkles, ArrowRight, ShieldCheck, KeyRound, User } from 'lucide-react'
+import { Sparkles, ArrowRight, KeyRound, User, Play } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
 
@@ -10,7 +10,7 @@ export default function StudentLoginPage() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const { signInWithStudentPin } = useAuth()
+  const { signInWithStudentPin, signInAsDemo } = useAuth()
   const navigate = useNavigate()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -36,9 +36,10 @@ export default function StudentLoginPage() {
     }
   }
 
-  // Quick guest exploration
-  const handleGuestDemo = () => {
-    navigate('/alphabet')
+  const handleDemoStudentLogin = async () => {
+    setLoading(true)
+    await signInAsDemo('student')
+    navigate('/student/dashboard')
   }
 
   return (
@@ -48,8 +49,7 @@ export default function StudentLoginPage() {
         animate={{ opacity: 1, scale: 1 }}
         className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border-4 border-sunny-300 relative overflow-hidden"
       >
-        {/* Glow */}
-        <div className="text-center space-y-3 mb-8">
+        <div className="text-center space-y-3 mb-6">
           <div className="w-20 h-20 mx-auto rounded-3xl bg-sunny-100 flex items-center justify-center text-4xl shadow-inner animate-bounce-gentle">
             ⭐
           </div>
@@ -57,7 +57,7 @@ export default function StudentLoginPage() {
             Student Login
           </h1>
           <p className="text-gray-500 text-sm">
-            Enter your teacher-provided username and PIN to continue your adventure!
+            Enter your username and PIN to continue your Arabic adventure!
           </p>
         </div>
 
@@ -67,26 +67,26 @@ export default function StudentLoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
               Student Username / ID
             </label>
             <div className="relative">
               <User className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="e.g. adam2024"
+                placeholder="e.g. adam, maya, zaid"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-base font-semibold"
+                className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-base font-semibold"
                 autoComplete="username"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
               Secret PIN (4 digits)
             </label>
             <div className="relative">
@@ -94,10 +94,10 @@ export default function StudentLoginPage() {
               <input
                 type="password"
                 maxLength={6}
-                placeholder="••••"
+                placeholder="1234"
                 value={pin}
                 onChange={e => setPin(e.target.value)}
-                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-lg tracking-widest font-mono"
+                className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-lg tracking-widest font-mono"
                 autoComplete="current-password"
               />
             </div>
@@ -107,24 +107,36 @@ export default function StudentLoginPage() {
             type="submit"
             variant="sunny"
             loading={loading}
-            className="w-full py-4 text-base font-black flex items-center justify-center gap-2 mt-2"
+            className="w-full py-3.5 text-base font-black flex items-center justify-center gap-2 mt-2"
           >
-            <span>Start Learning!</span>
+            <span>Start Learning! 🚀</span>
             <ArrowRight className="w-5 h-5" />
           </Button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-gray-100 space-y-4 text-center">
-          <button
+        {/* Instant 1-Click Demo Button */}
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <Button
             type="button"
-            onClick={handleGuestDemo}
-            className="text-sm font-bold text-brand-blue hover:underline block mx-auto"
+            variant="secondary"
+            onClick={handleDemoStudentLogin}
+            className="w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 bg-blue-50 text-brand-blue hover:bg-blue-100 border border-blue-200"
           >
-            🚀 Try Guest Learning Mode (No sign in needed)
-          </button>
+            <Play className="w-3.5 h-3.5" />
+            <span>1-Click Student Demo Login (Zaid)</span>
+          </Button>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-gray-100 space-y-2 text-center">
+          <Link
+            to="/alphabet"
+            className="text-xs font-bold text-gray-500 hover:text-brand-blue block"
+          >
+            Or play as Guest without login →
+          </Link>
           <div className="text-xs text-gray-400">
-            Are you an educator?{' '}
-            <Link to="/teacher/login" className="font-bold text-gray-600 hover:text-brand-blue underline">
+            Teacher?{' '}
+            <Link to="/teacher/login" className="font-bold text-brand-blue underline">
               Teacher sign in here
             </Link>
           </div>

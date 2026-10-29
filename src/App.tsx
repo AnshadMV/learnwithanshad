@@ -9,6 +9,7 @@ const AlphabetPage = lazy(() => import('@/pages/AlphabetPage'))
 const LetterPage = lazy(() => import('@/pages/LetterPage'))
 const WordExplorerPage = lazy(() => import('@/pages/WordExplorerPage'))
 const GamesLibraryPage = lazy(() => import('@/pages/GamesLibraryPage'))
+const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const StudentLoginPage = lazy(() => import('@/pages/StudentLoginPage'))
 const TeacherLoginPage = lazy(() => import('@/pages/TeacherLoginPage'))
 const StudentDashboardPage = lazy(() => import('@/pages/StudentDashboardPage'))
@@ -57,6 +58,14 @@ function LoadingScreen() {
   )
 }
 
+function DashboardRedirect() {
+  const { user, profile, loading } = useAuth()
+  if (loading) return <LoadingScreen />
+  if (!user) return <Navigate to="/login" replace />
+  if (profile?.role === 'teacher') return <Navigate to="/teacher/dashboard" replace />
+  return <Navigate to="/student/dashboard" replace />
+}
+
 function ProtectedRoute({ children, role }: { children: React.ReactNode; role: 'teacher' | 'student' }) {
   const { user, profile, loading } = useAuth()
   if (loading) return <LoadingScreen />
@@ -77,8 +86,11 @@ function AppRoutes() {
         <Route path="/games" element={<Layout><GamesLibraryPage /></Layout>} />
 
         {/* Auth */}
+        <Route path="/login" element={<Layout><LoginPage /></Layout>} />
         <Route path="/student/login" element={<StudentLoginPage />} />
         <Route path="/teacher/login" element={<TeacherLoginPage />} />
+        <Route path="/dashboard" element={<DashboardRedirect />} />
+        <Route path="/profile" element={<DashboardRedirect />} />
 
         {/* Student */}
         <Route path="/student/dashboard" element={
