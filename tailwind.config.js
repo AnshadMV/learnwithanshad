@@ -1,0 +1,125 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          200: '#bfdbfe',
+          300: '#93c5fd',
+          400: '#60a5fa',
+          500: '#4285F4',
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#1e3a8a',
+        },
+        coral: {
+          50: '#fff1f2',
+          100: '#ffe4e6',
+          200: '#fecdd3',
+          300: '#fda4af',
+          400: '#fb7185',
+          500: '#EA4335',
+          600: '#e11d48',
+          700: '#be123c',
+        },
+        sunny: {
+          50: '#fffbeb',
+          100: '#fef3c7',
+          200: '#fde68a',
+          300: '#fcd34d',
+          400: '#fbbf24',
+          500: '#FBBC05',
+          600: '#d97706',
+        },
+        emerald: {
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
+          500: '#34A853',
+          600: '#059669',
+        },
+        sky: '#EAF5FF',
+        brand: {
+          blue: '#4285F4',
+          coral: '#EA4335',
+          yellow: '#FBBC05',
+          green: '#34A853',
+          sky: '#EAF5FF',
+          text: '#243247',
+        },
+      },
+      fontFamily: {
+        arabic: ['"Noto Naskh Arabic"', '"Noto Sans Arabic"', 'serif'],
+        display: ['Nunito', 'Poppins', 'system-ui', 'sans-serif'],
+        body: ['Nunito', 'system-ui', 'sans-serif'],
+      },
+      fontSize: {
+        'arabic-sm': ['1.25rem', { lineHeight: '2rem' }],
+        'arabic-base': ['1.5rem', { lineHeight: '2.25rem' }],
+        'arabic-lg': ['2rem', { lineHeight: '3rem' }],
+        'arabic-xl': ['3rem', { lineHeight: '4rem' }],
+        'arabic-2xl': ['4rem', { lineHeight: '5.5rem' }],
+        'arabic-3xl': ['6rem', { lineHeight: '8rem' }],
+      },
+      borderRadius: {
+        'xl': '1rem',
+        '2xl': '1.5rem',
+        '3xl': '2rem',
+      },
+      boxShadow: {
+        'card': '0 4px 20px rgba(0,0,0,0.08)',
+        'card-hover': '0 8px 30px rgba(0,0,0,0.12)',
+        'letter': '0 8px 32px rgba(66,133,244,0.25)',
+        'game': '0 12px 40px rgba(0,0,0,0.12)',
+      },
+      animation: {
+        'bounce-gentle': 'bounceGentle 2s ease-in-out infinite',
+        'wiggle': 'wiggle 0.5s ease-in-out',
+        'star-pop': 'starPop 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97)',
+        'slide-up': 'slideUp 0.4s ease-out',
+        'fade-in': 'fadeIn 0.3s ease-out',
+      },
+      keyframes: {
+        bounceGentle: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+        wiggle: {
+          '0%, 100%': { transform: 'rotate(0deg)' },
+          '25%': { transform: 'rotate(-5deg)' },
+          '75%': { transform: 'rotate(5deg)' },
+        },
+        starPop: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.3)' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(20px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+      },
+      screens: {
+        'xs': '480px',
+        'sm': '640px',
+        'md': '768px',
+        'lg': '1024px',
+        'xl': '1280px',
+        '2xl': '1536px',
+      },
+    },
+  },
+  plugins: [],
+}

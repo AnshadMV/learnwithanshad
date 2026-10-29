@@ -1,0 +1,135 @@
+import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { Sparkles, ArrowRight, ShieldCheck, KeyRound, User } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import Button from '@/components/ui/Button'
+
+export default function StudentLoginPage() {
+  const [username, setUsername] = useState('')
+  const [pin, setPin] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const { signInWithStudentPin } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!username.trim() || !pin.trim()) {
+      setError('Please type your username and 4-digit PIN! 😊')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    try {
+      const { error: loginError } = await signInWithStudentPin(username.trim(), pin.trim())
+      if (loginError) {
+        setError(loginError.message || 'Incorrect username or PIN. Ask your teacher for help!')
+      } else {
+        navigate('/student/dashboard')
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong. Please try again!')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Quick guest exploration
+  const handleGuestDemo = () => {
+    navigate('/alphabet')
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#EAF5FF] via-blue-50 to-amber-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border-4 border-sunny-300 relative overflow-hidden"
+      >
+        {/* Glow */}
+        <div className="text-center space-y-3 mb-8">
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-sunny-100 flex items-center justify-center text-4xl shadow-inner animate-bounce-gentle">
+            ⭐
+          </div>
+          <h1 className="text-3xl font-black text-gray-800 font-display">
+            Student Login
+          </h1>
+          <p className="text-gray-500 text-sm">
+            Enter your teacher-provided username and PIN to continue your adventure!
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold text-center">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+              Student Username / ID
+            </label>
+            <div className="relative">
+              <User className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="e.g. adam2024"
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-base font-semibold"
+                autoComplete="username"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+              Secret PIN (4 digits)
+            </label>
+            <div className="relative">
+              <KeyRound className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="password"
+                maxLength={6}
+                placeholder="••••"
+                value={pin}
+                onChange={e => setPin(e.target.value)}
+                className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-lg tracking-widest font-mono"
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            variant="sunny"
+            loading={loading}
+            className="w-full py-4 text-base font-black flex items-center justify-center gap-2 mt-2"
+          >
+            <span>Start Learning!</span>
+            <ArrowRight className="w-5 h-5" />
+          </Button>
+        </form>
+
+        <div className="mt-8 pt-6 border-t border-gray-100 space-y-4 text-center">
+          <button
+            type="button"
+            onClick={handleGuestDemo}
+            className="text-sm font-bold text-brand-blue hover:underline block mx-auto"
+          >
+            🚀 Try Guest Learning Mode (No sign in needed)
+          </button>
+          <div className="text-xs text-gray-400">
+            Are you an educator?{' '}
+            <Link to="/teacher/login" className="font-bold text-gray-600 hover:text-brand-blue underline">
+              Teacher sign in here
+            </Link>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  )
+}

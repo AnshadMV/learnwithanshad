@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: 66 133 244;
+    --coral: 234 67 53;
+    --sunny: 251 188 5;
+    --green: 52 168 83;
+    --sky: 234 245 255;
+    --text: 36 50 71;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-family: 'Nunito', system-ui, sans-serif;
+    color: #243247;
+    background-color: #EAF5FF;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Arabic text direction */
+  [lang="ar"],
+  .arabic-text,
+  .font-arabic {
+    direction: rtl;
+    font-family: 'Noto Naskh Arabic', 'Noto Sans Arabic', serif;
+    line-height: 1.8;
+  }
+
+  /* Focus rings for accessibility */
+  :focus-visible {
+    outline: 3px solid #4285F4;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Arabic letter display */
+  .letter-card {
+    @apply bg-white rounded-3xl shadow-card p-6 flex flex-col items-center justify-center cursor-pointer
+           transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1 active:scale-95
+           select-none touch-manipulation;
+    min-height: 120px;
+    min-width: 100px;
+  }
+
+  .letter-display {
+    @apply font-arabic text-arabic-3xl text-brand-blue leading-none;
+    font-weight: 700;
+    text-align: center;
+    direction: rtl;
+  }
+
+  /* Game card */
+  .game-card {
+    @apply bg-white rounded-3xl shadow-card overflow-hidden cursor-pointer
+           transition-all duration-300 hover:shadow-card-hover hover:-translate-y-2;
+  }
+
+  /* Button variants */
+  .btn-primary {
+    @apply bg-brand-blue text-white font-bold rounded-2xl px-8 py-4 text-lg
+           transition-all duration-200 hover:bg-blue-600 active:scale-95
+           focus:outline-none focus:ring-4 focus:ring-blue-300
+           touch-manipulation select-none shadow-md;
+    min-height: 56px;
+  }
+
+  .btn-success {
+    @apply bg-brand-green text-white font-bold rounded-2xl px-8 py-4 text-lg
+           transition-all duration-200 hover:bg-emerald-600 active:scale-95
+           focus:outline-none focus:ring-4 focus:ring-green-300
+           touch-manipulation select-none shadow-md;
+    min-height: 56px;
+  }
+
+  .btn-coral {
+    @apply bg-brand-coral text-white font-bold rounded-2xl px-8 py-4 text-lg
+           transition-all duration-200 hover:bg-red-600 active:scale-95
+           focus:outline-none focus:ring-4 focus:ring-red-300
+           touch-manipulation select-none shadow-md;
+    min-height: 56px;
+  }
+
+  .btn-sunny {
+    @apply bg-brand-yellow text-gray-800 font-bold rounded-2xl px-8 py-4 text-lg
+           transition-all duration-200 hover:bg-yellow-500 active:scale-95
+           focus:outline-none focus:ring-4 focus:ring-yellow-300
+           touch-manipulation select-none shadow-md;
+    min-height: 56px;
+  }
+
+  /* Progress bar */
+  .progress-bar {
+    @apply bg-gray-200 rounded-full h-3 overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply bg-brand-blue h-full rounded-full transition-all duration-500 ease-out;
+  }
+
+  /* Star badge */
+  .star-badge {
+    @apply inline-flex items-center gap-1 bg-sunny-100 text-sunny-600 font-bold
+           rounded-full px-4 py-2 text-sm;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+@layer utilities {
+  .touch-target {
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+  }
+}
