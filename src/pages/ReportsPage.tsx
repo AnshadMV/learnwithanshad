@@ -48,13 +48,7 @@ export default function ReportsPage() {
           }))
           setReportRows(rows)
         } else {
-          // Sample records for export
-          setReportRows([
-            { id: '1', student_name: 'Adam', game_slug: 'letter-safari', score: 100, accuracy: 100, created_at: '2026-10-29' },
-            { id: '2', student_name: 'Maryam', game_slug: 'balloon-pop', score: 80, accuracy: 90, created_at: '2026-10-29' },
-            { id: '3', student_name: 'Yusuf', game_slug: 'letter-picture-match', score: 90, accuracy: 95, created_at: '2026-10-28' },
-            { id: '4', student_name: 'Noor', game_slug: 'rocket-race', score: 100, accuracy: 100, created_at: '2026-10-28' },
-          ])
+          setReportRows([])
         }
       } catch (err) {
         console.error(err)

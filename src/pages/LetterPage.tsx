@@ -1,16 +1,28 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Volume2, ChevronLeft, ChevronRight, ArrowLeft, Gamepad2 } from 'lucide-react'
+import { Volume2, ChevronLeft, ChevronRight, ArrowLeft, Gamepad2, Users } from 'lucide-react'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
 import { useArabicSpeech } from '@/hooks/useArabicSpeech'
 import { cn } from '@/lib/utils'
+import { ALL_GAMES } from '@/pages/GamesLibraryPage'
+import type { SkillTag } from '@/components/game/GameCard'
+import { getGroupsForLetter } from '@/data/letterPedagogy'
 
 const FORM_COLORS = [
   { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-700', label: 'bg-blue-500' },
   { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-700', label: 'bg-green-500' },
   { bg: 'bg-yellow-100', border: 'border-yellow-300', text: 'text-yellow-700', label: 'bg-yellow-500' },
   { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-700', label: 'bg-red-500' },
+]
+
+const SKILL_SECTIONS: { tag: SkillTag; label: string; icon: string; color: string; bg: string }[] = [
+  { tag: 'Tracing',     label: 'Handwriting & Tracing',   icon: '✏️', color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200' },
+  { tag: 'Recognition', label: 'Visual Recognition',       icon: '👁️', color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200' },
+  { tag: 'Phonics',     label: 'Phonics & Listening',      icon: '👂', color: 'text-purple-700',  bg: 'bg-purple-50 border-purple-200' },
+  { tag: 'Forms',       label: 'Letter Forms & Anatomy',   icon: '🧩', color: 'text-orange-700',  bg: 'bg-orange-50 border-orange-200' },
+  { tag: 'Vocabulary',  label: 'Vocabulary & Spelling',    icon: '📚', color: 'text-yellow-800',  bg: 'bg-yellow-50 border-yellow-200' },
+  { tag: 'Arcade',      label: 'Arcade & Reflex',          icon: '⚡', color: 'text-rose-700',    bg: 'bg-rose-50 border-rose-200' },
 ]
 
 const HERO_GRADIENTS = [
@@ -28,6 +40,7 @@ export default function LetterPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { speak, isSupported } = useArabicSpeech()
+  const [activeSkill, setActiveSkill] = useState<SkillTag | 'All'>('All')
 
   const letter = useMemo(() => ARABIC_LETTERS.find(l => l.id === id), [id])
   const letterIndex = useMemo(
@@ -39,6 +52,21 @@ export default function LetterPage() {
   const nextLetter = letterIndex < ARABIC_LETTERS.length - 1 ? ARABIC_LETTERS[letterIndex + 1] : null
 
   const gradient = HERO_GRADIENTS[(letterIndex >= 0 ? letterIndex : 0) % HERO_GRADIENTS.length]
+
+  // Letter-scoped games (all games that support letter scope)
+  const letterGames = useMemo(
+    () => ALL_GAMES.filter(g => g.supportsLetterScope),
+    [],
+  )
+
+  // Filter by active skill tab
+  const filteredGames = useMemo(
+    () => activeSkill === 'All' ? letterGames : letterGames.filter(g => g.skillTag === activeSkill),
+    [letterGames, activeSkill],
+  )
+
+  // Related letter groups
+  const relatedGroups = useMemo(() => id ? getGroupsForLetter(id) : [], [id])
 
   if (!letter) {
     return (
@@ -194,158 +222,166 @@ export default function LetterPage() {
           )}
         </motion.section>
 
-        {/* ── Letter-Specific Games Grid ── */}
+        {/* ── Dynamic Letter-Scoped Game Hub ── */}
         <motion.section
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.42 }}
-          className="space-y-4"
+          className="space-y-5"
         >
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-black text-[#243247] flex items-center gap-2">
-              <span>🎮 Practice Games for</span>
+          {/* Section header */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="text-2xl font-black text-[#243247] flex items-center gap-2 flex-wrap">
+              <span>🎮 Games for</span>
               <span className="font-arabic text-3xl text-brand-blue" dir="rtl">{letter.letter}</span>
               <span className="text-base text-gray-400 font-medium">({letter.name_english})</span>
             </h2>
             <Link
-              to="/games"
+              to={`/games?letter=${letter.id}`}
               className="text-xs font-bold text-brand-blue hover:underline flex items-center gap-1"
             >
-              <span>View all 24+ games</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+              <span>All arcade games →</span>
             </Link>
           </div>
 
+          {/* Skill filter tabs */}
+          <div className="flex gap-2 flex-wrap">
+            {[{ tag: 'All' as const, label: '🎮 All', color: '' }, ...SKILL_SECTIONS.map(s => ({ tag: s.tag, label: `${s.icon} ${s.tag}`, color: '' }))].map(tab => (
+              <button
+                key={tab.tag}
+                onClick={() => setActiveSkill(tab.tag as any)}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-2xl font-bold text-xs transition-all whitespace-nowrap',
+                  activeSkill === tab.tag
+                    ? 'bg-brand-blue text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Games grid — all letter-scoped games */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {/* 1. Tracing */}
-            <Link
-              to={`/games/trace-letter?letter=${letter.id}`}
-              className="group bg-gradient-to-br from-amber-50 to-orange-100 border-2 border-amber-200 hover:border-amber-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">✍️</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-800">
-                  Tracing
-                </span>
-              </div>
-              <h3 className="font-bold text-gray-800 group-hover:text-amber-800 transition-colors">
-                Trace Letter {letter.name_english}
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Guide your pencil along the curves of <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span>!
-              </p>
-            </Link>
-
-            {/* 2. Balloon Pop */}
-            <Link
-              to={`/games/balloon-pop?letter=${letter.id}`}
-              className="group bg-gradient-to-br from-rose-50 to-pink-100 border-2 border-rose-200 hover:border-rose-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">🎈</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-800">
-                  Arcade
-                </span>
-              </div>
-              <h3 className="font-bold text-gray-800 group-hover:text-rose-800 transition-colors">
-                Pop {letter.name_english} Balloons
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Spot and pop only balloons floating with <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span>!
-              </p>
-            </Link>
-
-            {/* 3. Letter Safari */}
-            <Link
-              to={`/games/letter-safari?letter=${letter.id}`}
-              className="group bg-gradient-to-br from-emerald-50 to-teal-100 border-2 border-emerald-200 hover:border-emerald-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">🦁</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800">
-                  Safari
-                </span>
-              </div>
-              <h3 className="font-bold text-gray-800 group-hover:text-emerald-800 transition-colors">
-                {letter.name_english} Safari Hunt
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Explore the savanna and uncover hidden <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span> tracks.
-              </p>
-            </Link>
-
-            {/* 4. Letter Catcher */}
-            <Link
-              to={`/games/letter-catcher?letter=${letter.id}`}
-              className="group bg-gradient-to-br from-sky-50 to-blue-100 border-2 border-sky-200 hover:border-sky-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">🧺</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-200 text-sky-800">
-                  Action
-                </span>
-              </div>
-              <h3 className="font-bold text-gray-800 group-hover:text-sky-800 transition-colors">
-                Catch the {letter.name_english} Stars
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Catch falling letter <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span> gems into your magic basket!
-              </p>
-            </Link>
-
-            {/* 5. Shape & Connector */}
-            <Link
-              to={`/games/shape-match?letter=${letter.id}`}
-              className="group bg-gradient-to-br from-purple-50 to-indigo-100 border-2 border-purple-200 hover:border-purple-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">🧩</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-800">
-                  Shaping
-                </span>
-              </div>
-              <h3 className="font-bold text-gray-800 group-hover:text-purple-800 transition-colors">
-                Connect {letter.name_english} Forms
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Match isolated, initial, medial, and final forms of <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span>.
-              </p>
-            </Link>
-
-            {/* 6. Picture Match */}
-            <Link
-              to={`/games/letter-picture-match?letter=${letter.id}`}
-              className="group bg-gradient-to-br from-yellow-50 to-amber-100 border-2 border-yellow-200 hover:border-yellow-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1 block"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-2xl">🖼️</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-yellow-200 text-yellow-800">
-                  Vocabulary
-                </span>
-              </div>
-              <h3 className="font-bold text-gray-800 group-hover:text-yellow-800 transition-colors">
-                {letter.name_english} Word Match
-              </h3>
-              <p className="text-xs text-gray-500 mt-1">
-                Match words starting with <span className="font-arabic font-bold text-sm" dir="rtl">{letter.letter}</span> to colorful illustrations!
-              </p>
-            </Link>
+            {filteredGames.map((game, idx) => {
+              const skillMeta = SKILL_SECTIONS.find(s => s.tag === game.skillTag)
+              return (
+                <motion.div
+                  key={game.slug}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                >
+                  <Link
+                    to={`/games/${game.slug}?letter=${letter.id}`}
+                    className={cn(
+                      'group block p-5 rounded-2xl border-2 shadow-sm hover:shadow-md transition-all hover:-translate-y-1',
+                      skillMeta?.bg || 'bg-gray-50 border-gray-200 hover:border-gray-400',
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-2xl">{game.icon}</span>
+                      <span className={cn(
+                        'text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full',
+                        skillMeta ? `bg-white/70 ${skillMeta.color}` : 'bg-white/70 text-gray-600',
+                      )}>
+                        {skillMeta?.icon} {game.skillTag}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-gray-800 group-hover:text-brand-blue transition-colors text-sm">
+                      {game.name}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">{game.description}</p>
+                    <div className="mt-3 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                      <span>🎯</span>
+                      <span className="font-arabic" dir="rtl">{letter.letter}</span>
+                      <span>-focused session</span>
+                    </div>
+                  </Link>
+                </motion.div>
+              )
+            })}
           </div>
+
+          <p className="text-xs text-center text-gray-400">
+            {filteredGames.length} game{filteredGames.length !== 1 ? 's' : ''} letter-scoped for{' '}
+            <span className="font-arabic font-bold" dir="rtl">{letter.letter}</span>
+          </p>
         </motion.section>
 
-        {/* ── Practice button ── */}
+        {/* ── Related Letter Groups ── */}
+        {relatedGroups.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="space-y-4"
+          >
+            <h2 className="text-xl font-black text-[#243247] flex items-center gap-2">
+              <Users className="w-5 h-5 text-teal-500" />
+              Practice {letter.name_english} With Related Letters
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {relatedGroups.map(group => (
+                <Link
+                  key={group.id}
+                  to={`/games/groups?preset=${group.id}`}
+                  className="group flex items-start gap-4 bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200 hover:border-teal-400 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
+                >
+                  <span className="text-3xl mt-0.5">{group.emoji}</span>
+                  <div>
+                    <h3 className="font-bold text-gray-800 group-hover:text-teal-700 transition-colors">
+                      {group.name}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-0.5">{group.description}</p>
+                    <div className="flex items-center gap-1 mt-2 flex-wrap">
+                      {group.letterIds.map(lid => {
+                        const l2 = ARABIC_LETTERS.find(l => l.id === lid)
+                        return l2 ? (
+                          <span
+                            key={lid}
+                            className={cn(
+                              'font-arabic text-lg font-bold px-1.5 py-0.5 rounded-lg',
+                              lid === letter.id ? 'bg-teal-500 text-white' : 'bg-white text-gray-700 border border-gray-200',
+                            )}
+                            dir="rtl"
+                          >
+                            {l2.letter}
+                          </span>
+                        ) : null
+                      })}
+                    </div>
+                    <p className="text-[10px] text-teal-600 font-bold mt-2 uppercase tracking-wider">
+                      {group.focus}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </motion.section>
+        )}
+
+        {/* ── Full Arcade CTA ── */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.48 }}
-          className="text-center pt-2"
+          transition={{ delay: 0.55 }}
+          className="text-center pt-2 flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <Link
-            to="/games"
+            to={`/games?letter=${letter.id}`}
             className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-lg px-8 py-4 rounded-2xl shadow-xl shadow-emerald-200 transition-all hover:scale-105 active:scale-95"
           >
             <Gamepad2 className="w-6 h-6" />
-            Explore Full Arcade (24+ Games) 🚀
+            Full Arcade for <span className="font-arabic ml-1" dir="rtl">{letter.letter}</span>
+          </Link>
+          <Link
+            to="/games/groups"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-bold text-base px-6 py-4 rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95"
+          >
+            <Users className="w-5 h-5" />
+            Group Practice Arena
           </Link>
         </motion.div>
 

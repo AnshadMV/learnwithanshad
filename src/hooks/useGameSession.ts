@@ -89,6 +89,17 @@ export function useGameSession({ gameSlug, letterId }: GameSessionOptions): UseG
     setStartTime(now)
     setStatus('playing')
 
+    try {
+      (window as any).__ARABIC_ACTIVE_GAME__ = {
+        gameSlug,
+        letterId: letterId ?? null,
+        score: 0,
+        accuracy: 100,
+        questionsCompleted: 0,
+        status: 'playing',
+      }
+    } catch {}
+
     // Broadcast session start to Live Monitor
     broadcastLiveActivity({
       student_id: user?.id || 'guest_student',
@@ -116,6 +127,17 @@ export function useGameSession({ gameSlug, letterId }: GameSessionOptions): UseG
       setScore(scoreRef.current)
 
       const acc = calculateAccuracy(correctRef.current, totalRef.current)
+
+      try {
+        (window as any).__ARABIC_ACTIVE_GAME__ = {
+          gameSlug,
+          letterId: letterId ?? null,
+          score: scoreRef.current,
+          accuracy: acc,
+          questionsCompleted: correctRef.current,
+          status: 'playing',
+        }
+      } catch {}
 
       // Broadcast live event on each answer
       broadcastLiveActivity({

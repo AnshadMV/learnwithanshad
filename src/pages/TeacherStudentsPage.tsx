@@ -29,46 +29,100 @@ export default function TeacherStudentsPage() {
 
   useEffect(() => {
     loadStudents()
-  }, [])
+  }, [user])
 
   async function loadStudents() {
     setLoading(true)
 
-    // Check local storage first
+    // Load any existing valid student records from local storage
     const saved = localStorage.getItem('arabic_local_students')
+    let localParsed: StudentRecord[] = []
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setStudents(parsed)
-          setLoading(false)
+        if (Array.isArray(parsed)) {
+          localParsed = parsed.filter((s: any) => 
+            !s.id?.startsWith('std_') && 
+            !s.display_name?.includes('Zaid Explorer') && 
+            !s.display_name?.includes('Layla Sunshine')
+          )
+          if (localParsed.length > 0) {
+            setStudents(localParsed)
+          }
         }
       } catch {}
-    } else {
-      const defaultDemoStudents: StudentRecord[] = [
-        { id: 'std_1', display_name: 'Zaid Explorer', email: 'zaid@student.arabiclearn.local', is_active: true, created_at: new Date().toISOString() },
-        { id: 'std_2', display_name: 'Layla Sunshine', email: 'layla@student.arabiclearn.local', is_active: true, created_at: new Date().toISOString() },
-        { id: 'std_3', display_name: 'Omar Falcon', email: 'omar@student.arabiclearn.local', is_active: true, created_at: new Date().toISOString() },
-        { id: 'std_4', display_name: 'Fatima Star', email: 'fatima@student.arabiclearn.local', is_active: true, created_at: new Date().toISOString() },
-      ]
-      setStudents(defaultDemoStudents)
-      localStorage.setItem('arabic_local_students', JSON.stringify(defaultDemoStudents))
-      setLoading(false)
     }
 
-    // Attempt remote fetch
+    // Dynamic query from Supabase
     try {
-      const { data } = await supabase
+      let remoteStudents: StudentRecord[] = []
+
+      // 1. Query all student profiles in database
+      const { data: allStudents, error: profErr } = await supabase
         .from('profiles')
         .select('id, display_name, email, is_active, created_at')
         .eq('role', 'student')
         .order('created_at', { ascending: false })
 
-      if (data && data.length > 0) {
-        setStudents(data)
+      if (!profErr && allStudents && allStudents.length > 0) {
+        remoteStudents = allStudents
+      }
+
+      // 2. Also check students via classroom_students join if available
+      if (user) {
+        const { data: classrooms } = await supabase
+          .from('classrooms')
+          .select('id, name')
+          .eq('teacher_id', user.id)
+
+        if (classrooms && classrooms.length > 0) {
+          const classIds = classrooms.map(c => c.id)
+          const { data: enrolled } = await supabase
+            .from('classroom_students')
+            .select('student_id')
+            .in('classroom_id', classIds)
+
+          const studentIds = (enrolled || []).map(e => e.student_id)
+          if (studentIds.length > 0) {
+            const { data: enrolledProfiles } = await supabase
+              .from('profiles')
+              .select('id, display_name, email, is_active, created_at')
+              .in('id', studentIds)
+
+            if (enrolledProfiles && enrolledProfiles.length > 0) {
+              // Add any missing enrolled students
+              for (const ep of enrolledProfiles) {
+                if (!remoteStudents.some(r => r.id === ep.id)) {
+                  remoteStudents.push(ep)
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Merge remote students + locally tracked records (deduplicating by email/name/id)
+      const merged: StudentRecord[] = [...remoteStudents]
+      for (const loc of localParsed) {
+        const alreadyExists = merged.some(m => 
+          m.id === loc.id || 
+          (m.email && loc.email && m.email.toLowerCase() === loc.email.toLowerCase()) ||
+          m.display_name.trim().toLowerCase() === loc.display_name.trim().toLowerCase()
+        )
+        if (!alreadyExists) {
+          merged.push(loc)
+        }
+      }
+
+      setStudents(merged)
+      if (merged.length > 0) {
+        localStorage.setItem('arabic_local_students', JSON.stringify(merged))
       }
     } catch (err) {
-      // Supabase offline / network timeout
+      console.warn('Network offline or error querying student profiles:', err)
+      if (localParsed.length > 0) {
+        setStudents(localParsed)
+      }
     } finally {
       setLoading(false)
     }
@@ -90,39 +144,55 @@ export default function TeacherStudentsPage() {
       cleanUsername = cleanUsername.split('@')[0]
     }
     cleanUsername = cleanUsername.replace(/[^a-z0-9_-]/g, '')
-    const studentEmail = `${cleanUsername}@student.arabiclearn.com`
+    const studentEmail = `${cleanUsername}@gmail.com`
+
+    let createdId = `student_${cleanUsername}_${Date.now()}`
 
     try {
-      // 1. Attempt Supabase registration
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: studentEmail,
-        password: `pin_${pin.trim()}`,
-        options: {
-          data: {
-            display_name: displayName.trim(),
-            role: 'student',
-          },
-        },
+      // 1. Try creating via PostgreSQL RPC create_student_by_teacher (bypasses email rate limits)
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('create_student_by_teacher', {
+        p_display_name: displayName.trim(),
+        p_username: cleanUsername,
+        p_pin: pin.trim(),
+        p_classroom_code: 'LEVEL-1',
       })
 
-      if (authErr && !authErr.message.includes('fetch')) {
-        setErrorMsg(authErr.message)
-        return
-      }
+      if (!rpcErr && rpcData?.id) {
+        createdId = rpcData.id
+      } else {
+        // 2. Direct table insert fallback if RPC not yet run
+        const generatedUuid = crypto.randomUUID ? crypto.randomUUID() : createdId
+        createdId = generatedUuid
 
-      if (authData?.user) {
         await supabase.from('profiles').upsert({
-          id: authData.user.id,
+          id: generatedUuid,
           display_name: displayName.trim(),
           email: studentEmail,
           role: 'student',
           is_active: true,
         } as any)
+
+        // Find teacher's classroom to enroll
+        if (user) {
+          const { data: teacherClass } = await supabase
+            .from('classrooms')
+            .select('id')
+            .eq('teacher_id', user.id)
+            .limit(1)
+            .maybeSingle()
+
+          if (teacherClass?.id) {
+            await supabase.from('classroom_students').insert({
+              classroom_id: teacherClass.id,
+              student_id: generatedUuid,
+            })
+          }
+        }
       }
 
-      // Add to local state and localStorage
+      // Add to local state & storage immediately
       const newRecord: StudentRecord = {
-        id: authData?.user?.id || `student_${cleanUsername}_${Date.now()}`,
+        id: createdId,
         display_name: displayName.trim(),
         email: studentEmail,
         is_active: true,
@@ -130,20 +200,21 @@ export default function TeacherStudentsPage() {
       }
 
       setStudents(prev => {
-        const updated = [newRecord, ...prev]
+        const withoutOld = prev.filter(p => p.email?.toLowerCase() !== studentEmail.toLowerCase())
+        const updated = [newRecord, ...withoutOld]
         localStorage.setItem('arabic_local_students', JSON.stringify(updated))
         return updated
       })
 
-      setSuccessMsg(`Student "${displayName}" added successfully! Login ID: ${cleanUsername}, PIN: ${pin}`)
+      setSuccessMsg(`Student "${displayName.trim()}" added successfully! Login: ${cleanUsername} or ${studentEmail}, PIN: ${pin}`)
       setDisplayName('')
       setUsername('')
       setPin('')
       setIsModalOpen(false)
     } catch (err: any) {
-      // Local fallback creation
+      console.warn('Student creation warning, persisting locally:', err)
       const localRecord: StudentRecord = {
-        id: `student_${cleanUsername}_${Date.now()}`,
+        id: createdId,
         display_name: displayName.trim(),
         email: studentEmail,
         is_active: true,
@@ -151,12 +222,13 @@ export default function TeacherStudentsPage() {
       }
 
       setStudents(prev => {
-        const updated = [localRecord, ...prev]
+        const withoutOld = prev.filter(p => p.email?.toLowerCase() !== studentEmail.toLowerCase())
+        const updated = [localRecord, ...withoutOld]
         localStorage.setItem('arabic_local_students', JSON.stringify(updated))
         return updated
       })
 
-      setSuccessMsg(`Student "${displayName}" added successfully! Login ID: ${cleanUsername}, PIN: ${pin}`)
+      setSuccessMsg(`Student "${displayName.trim()}" created successfully! Login: ${cleanUsername}, PIN: ${pin}`)
       setDisplayName('')
       setUsername('')
       setPin('')

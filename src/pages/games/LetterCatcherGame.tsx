@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Heart } from 'lucide-react'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
+import { getConfusableDistractors } from '@/data/letterPedagogy'
 import { useSound } from '@/hooks/useSound'
 import { useGameSession } from '@/hooks/useGameSession'
 import GameComplete from '@/components/game/GameComplete'
@@ -21,21 +22,40 @@ interface FallingItem {
 
 export default function LetterCatcherGame() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paramLetter = searchParams.get('letter')
+
+  const targetObj = useMemo(() => {
+    if (paramLetter) {
+      return ARABIC_LETTERS.find(l => l.id === paramLetter) || ARABIC_LETTERS[23]
+    }
+    return ARABIC_LETTERS[23]
+  }, [paramLetter])
+
   const { playCorrect, playWrong, playClick } = useSound()
   const { score, recordAnswer, completeGame, startGame } = useGameSession({
     gameSlug: 'letter-catcher',
+    letterId: paramLetter || undefined,
   })
 
   const [gameState, setGameState] = useState<'intro' | 'playing' | 'completed'>('intro')
-  const [targetChar, setTargetChar] = useState('م')
+  const [targetChar, setTargetChar] = useState(targetObj.letter)
   const [basketX, setBasketX] = useState(50) // percentage
   const [fallingItems, setFallingItems] = useState<FallingItem[]>([])
   const [lives, setLives] = useState(3)
   const [result, setResult] = useState<GameResult | null>(null)
 
+  const distractorLetters = useMemo(() => {
+    const confusableIds = getConfusableDistractors(targetObj.id, 4)
+    if (confusableIds.length >= 2) {
+      return confusableIds.map(id => ARABIC_LETTERS.find(l => l.id === id)?.letter).filter(Boolean) as string[]
+    }
+    return ARABIC_LETTERS.filter(l => l.id !== targetObj.id).map(l => l.letter)
+  }, [targetObj])
+
   const handleStart = () => {
     startGame()
-    const target = ARABIC_LETTERS[23].letter // Meem
+    const target = targetObj.letter
     setTargetChar(target)
     setLives(3)
     setBasketX(50)
@@ -51,7 +71,7 @@ export default function LetterCatcherGame() {
       const isTarget = Math.random() > 0.4
       const char = isTarget
         ? targetChar
-        : pickRandom(ARABIC_LETTERS.filter(l => l.letter !== targetChar), 1)[0].letter
+        : pickRandom(distractorLetters, 1)[0]
 
       setFallingItems(prev => [
         ...prev,
@@ -142,6 +162,14 @@ export default function LetterCatcherGame() {
           </div>
         </div>
       </div>
+
+      {/* Letter-Specific Mode Banner */}
+      {paramLetter && (
+        <div className="flex items-center gap-2 text-sm font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2">
+          <span>🎯</span>
+          <span>Catching Stars for Letter: <span className="font-arabic text-lg ml-1" dir="rtl">{targetObj.letter}</span> ({targetObj.name_english})</span>
+        </div>
+      )}
 
       {gameState === 'intro' && (
         <div className="bg-white rounded-3xl p-8 shadow-card text-center space-y-6">

@@ -22,12 +22,14 @@ export function Navbar() {
     { label: 'Alphabet', to: '/alphabet' },
     { label: 'Word Explorer', to: '/words' },
     { label: 'Games', to: '/games' },
+    { label: 'Letter Groups 👥', to: '/games/groups' },
   ]
 
   const studentLinks: NavLink[] = [
     { label: 'Home', to: '/' },
     { label: 'Alphabet', to: '/alphabet' },
     { label: 'Games', to: '/games' },
+    { label: 'Letter Groups 👥', to: '/games/groups' },
     { label: 'My Dashboard', to: '/student/dashboard' },
     { label: 'My Progress', to: '/student/progress' },
   ]
@@ -63,10 +65,10 @@ export function Navbar() {
             <span className="text-3xl group-hover:scale-110 transition-transform select-none">⭐</span>
             <div className="leading-tight">
               <span className="font-black text-lg text-brand-blue font-display block">
-                Arabic Learning
+                Learn Arabic
               </span>
               <span className="text-[11px] font-extrabold text-sunny-600 tracking-wider uppercase block -mt-1">
-                Adventure
+                with Anshad
               </span>
             </div>
           </Link>

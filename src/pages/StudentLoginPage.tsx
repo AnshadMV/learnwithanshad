@@ -36,10 +36,24 @@ export default function StudentLoginPage() {
     }
   }
 
-  const handleDemoStudentLogin = async () => {
+  const handleQuickStudentLogin = async () => {
+    setUsername('fathima@gmail.com')
+    setPin('fathima123')
     setLoading(true)
-    await signInAsDemo('student')
-    navigate('/student/dashboard')
+    setError(null)
+    try {
+      const { error: loginError } = await signInWithStudentPin('fathima@gmail.com', 'fathima123')
+      if (loginError) {
+        // Fallback to demo profile for Fathima
+        await signInAsDemo('student')
+      }
+      navigate('/student/dashboard')
+    } catch {
+      await signInAsDemo('student')
+      navigate('/student/dashboard')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -70,13 +84,13 @@ export default function StudentLoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-              Student Username / ID
+              Student Username or Email
             </label>
             <div className="relative">
               <User className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="e.g. adam, maya, zaid"
+                placeholder="e.g. fathima or fathima@gmail.com"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-base font-semibold"
@@ -87,17 +101,17 @@ export default function StudentLoginPage() {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1.5">
-              Secret PIN (4 digits)
+              Secret PIN / Password
             </label>
             <div className="relative">
               <KeyRound className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="password"
-                maxLength={6}
-                placeholder="1234"
+                maxLength={64}
+                placeholder="e.g. fathima123"
                 value={pin}
                 onChange={e => setPin(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-lg tracking-widest font-mono"
+                className="w-full pl-12 pr-4 py-3 rounded-2xl border-2 border-blue-100 focus:border-brand-blue focus:outline-none text-base font-mono"
                 autoComplete="current-password"
               />
             </div>
@@ -114,16 +128,16 @@ export default function StudentLoginPage() {
           </Button>
         </form>
 
-        {/* Instant 1-Click Demo Button */}
+        {/* Instant 1-Click Quick Login */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           <Button
             type="button"
             variant="secondary"
-            onClick={handleDemoStudentLogin}
+            onClick={handleQuickStudentLogin}
             className="w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 bg-blue-50 text-brand-blue hover:bg-blue-100 border border-blue-200"
           >
             <Play className="w-3.5 h-3.5" />
-            <span>1-Click Student Demo Login (Zaid)</span>
+            <span>1-Click Student Login (Fathima)</span>
           </Button>
         </div>
 

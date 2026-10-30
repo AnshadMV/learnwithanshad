@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Volume2, ArrowLeft, RotateCcw, Trophy, Sparkles } from 'lucide-react'
 import { ARABIC_LETTERS, LetterData } from '@/data/arabicLetters'
+import { getConfusableDistractors } from '@/data/letterPedagogy'
 import { useSound } from '@/hooks/useSound'
 import { useGameSession } from '@/hooks/useGameSession'
 import { useArabicSpeech } from '@/hooks/useArabicSpeech'
@@ -14,10 +15,16 @@ import { shuffleArray, pickRandom } from '@/lib/utils'
 
 export default function LetterSafariGame() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paramLetter = searchParams.get('letter')
+
   const { playCorrect, playWrong, playClick } = useSound()
   const { speak } = useArabicSpeech()
   const { score, questionsTotal, questionsCorrect, recordAnswer, completeGame, startGame } =
-    useGameSession({ gameSlug: 'letter-safari' })
+    useGameSession({
+      gameSlug: 'letter-safari',
+      letterId: paramLetter || undefined,
+    })
 
   const [gameState, setGameState] = useState<'intro' | 'playing' | 'completed'>('intro')
   const [currentRound, setCurrentRound] = useState(0)
@@ -27,16 +34,26 @@ export default function LetterSafariGame() {
   const [isCorrectFeedback, setIsCorrectFeedback] = useState<boolean | null>(null)
   const [result, setResult] = useState<GameResult | null>(null)
 
-  const TOTAL_ROUNDS = 8
+  const TOTAL_ROUNDS = paramLetter ? 5 : 8
 
   const startNewRound = (roundIdx: number) => {
-    const target = ARABIC_LETTERS[roundIdx % ARABIC_LETTERS.length]
+    const target = paramLetter
+      ? ARABIC_LETTERS.find(l => l.id === paramLetter) || ARABIC_LETTERS[0]
+      : ARABIC_LETTERS[roundIdx % ARABIC_LETTERS.length]
     setTargetLetter(target)
 
-    const distractors = pickRandom(
-      ARABIC_LETTERS.filter(l => l.id !== target.id),
-      8
+    // For distractors, use confusable lookalikes when letter is scoped
+    const confusableIds = getConfusableDistractors(target.id, 6)
+    const confusableLetters = confusableIds
+      .map(id => ARABIC_LETTERS.find(l => l.id === id)!)
+      .filter(Boolean)
+
+    const otherLetters = ARABIC_LETTERS.filter(
+      l => l.id !== target.id && !confusableIds.includes(l.id)
     )
+    const fillerDistractors = pickRandom(otherLetters, 8 - confusableLetters.length)
+    const distractors = [...confusableLetters, ...fillerDistractors].slice(0, 8)
+
     const combined = shuffleArray([target, ...distractors])
     setOptions(combined)
     setSelectedLetter(null)
@@ -97,6 +114,14 @@ export default function LetterSafariGame() {
           <span className="text-lg font-black text-brand-blue">{score}</span>
         </div>
       </div>
+
+      {/* Letter-Specific Mode Banner */}
+      {paramLetter && (
+        <div className="flex items-center gap-2 text-sm font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2">
+          <span>🎯</span>
+          <span>Safari Focused on Letter: <span className="font-arabic text-lg ml-1" dir="rtl">{targetLetter.letter}</span> ({targetLetter.name_english})</span>
+        </div>
+      )}
 
       {gameState === 'intro' && (
         <div className="bg-white rounded-3xl p-8 shadow-card text-center space-y-6">

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Clock } from 'lucide-react'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
+import { getConfusableDistractors } from '@/data/letterPedagogy'
 import { useSound } from '@/hooks/useSound'
 import { useGameSession } from '@/hooks/useGameSession'
 import GameComplete from '@/components/game/GameComplete'
@@ -23,20 +24,39 @@ const BALLOON_COLORS = ['#4285F4', '#EA4335', '#FBBC05', '#34A853', '#8B5CF6', '
 
 export default function BalloonPopGame() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paramLetter = searchParams.get('letter')
+
+  const targetObj = useMemo(() => {
+    if (paramLetter) {
+      return ARABIC_LETTERS.find(l => l.id === paramLetter) || ARABIC_LETTERS[1]
+    }
+    return ARABIC_LETTERS[1]
+  }, [paramLetter])
+
   const { playCorrect, playWrong, playClick } = useSound()
   const { score, recordAnswer, completeGame, startGame } = useGameSession({
     gameSlug: 'balloon-pop',
+    letterId: paramLetter || undefined,
   })
 
   const [gameState, setGameState] = useState<'intro' | 'playing' | 'completed'>('intro')
-  const [targetChar, setTargetChar] = useState('ب')
+  const [targetChar, setTargetChar] = useState(targetObj.letter)
   const [balloons, setBalloons] = useState<Balloon[]>([])
   const [timeLeft, setTimeLeft] = useState(25)
   const [result, setResult] = useState<GameResult | null>(null)
 
+  const distractorLetters = useMemo(() => {
+    const confusableIds = getConfusableDistractors(targetObj.id, 4)
+    if (confusableIds.length >= 2) {
+      return confusableIds.map(id => ARABIC_LETTERS.find(l => l.id === id)?.letter).filter(Boolean) as string[]
+    }
+    return ARABIC_LETTERS.filter(l => l.id !== targetObj.id).map(l => l.letter)
+  }, [targetObj])
+
   const handleStart = () => {
     startGame()
-    const target = ARABIC_LETTERS[1].letter // Ba
+    const target = targetObj.letter
     setTargetChar(target)
     setTimeLeft(25)
 
@@ -46,7 +66,7 @@ export default function BalloonPopGame() {
       const isTarget = i % 2 === 0
       const letter = isTarget
         ? target
-        : pickRandom(ARABIC_LETTERS.filter(l => l.letter !== target), 1)[0].letter
+        : pickRandom(distractorLetters, 1)[0]
 
       initialBalloons.push({
         id: Date.now() + i,
@@ -105,7 +125,7 @@ export default function BalloonPopGame() {
       const isNextTarget = Math.random() > 0.4
       const nextChar = isNextTarget
         ? targetChar
-        : pickRandom(ARABIC_LETTERS.filter(l => l.letter !== targetChar), 1)[0].letter
+        : pickRandom(distractorLetters, 1)[0]
 
       setBalloons(prev => [
         ...prev.filter(b => b.id !== balloon.id),
@@ -142,6 +162,14 @@ export default function BalloonPopGame() {
           </div>
         </div>
       </div>
+
+      {/* Letter-Specific Mode Banner */}
+      {paramLetter && (
+        <div className="flex items-center gap-2 text-sm font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2">
+          <span>🎯</span>
+          <span>Popping Balloons for Letter: <span className="font-arabic text-lg ml-1" dir="rtl">{targetObj.letter}</span> ({targetObj.name_english})</span>
+        </div>
+      )}
 
       {gameState === 'intro' && (
         <div className="bg-white rounded-3xl p-8 shadow-card text-center space-y-6">

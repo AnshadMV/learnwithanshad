@@ -9,6 +9,7 @@ const AlphabetPage = lazy(() => import('@/pages/AlphabetPage'))
 const LetterPage = lazy(() => import('@/pages/LetterPage'))
 const WordExplorerPage = lazy(() => import('@/pages/WordExplorerPage'))
 const GamesLibraryPage = lazy(() => import('@/pages/GamesLibraryPage'))
+const LetterGroupArenaPage = lazy(() => import('@/pages/LetterGroupArenaPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const StudentLoginPage = lazy(() => import('@/pages/StudentLoginPage'))
 const TeacherLoginPage = lazy(() => import('@/pages/TeacherLoginPage'))
@@ -69,6 +70,11 @@ const CritterWhackGame = lazy(() => import('@/pages/games/CritterWhackGame'))
 const RainbowBridgeGame = lazy(() => import('@/pages/games/RainbowBridgeGame'))
 const LanternGlowGame = lazy(() => import('@/pages/games/LanternGlowGame'))
 const GearFactoryGame = lazy(() => import('@/pages/games/GearFactoryGame'))
+// Unique & Letter Group Games
+const DotPlacementGame = lazy(() => import('@/pages/games/DotPlacementGame'))
+const SisterShowdownGame = lazy(() => import('@/pages/games/SisterShowdownGame'))
+const ConveyorSorterGame = lazy(() => import('@/pages/games/ConveyorSorterGame'))
+const TrainSequencerGame = lazy(() => import('@/pages/games/TrainSequencerGame'))
 
 function LoadingScreen() {
   return (
@@ -107,6 +113,7 @@ function AppRoutes() {
         <Route path="/letter/:id" element={<Layout><LetterPage /></Layout>} />
         <Route path="/words" element={<Layout><WordExplorerPage /></Layout>} />
         <Route path="/games" element={<Layout><GamesLibraryPage /></Layout>} />
+        <Route path="/games/groups" element={<Layout><LetterGroupArenaPage /></Layout>} />
 
         {/* Auth */}
         <Route path="/login" element={<Layout><LoginPage /></Layout>} />
@@ -188,6 +195,11 @@ function AppRoutes() {
         <Route path="/games/rainbow-bridge" element={<Layout><RainbowBridgeGame /></Layout>} />
         <Route path="/games/lantern-glow" element={<Layout><LanternGlowGame /></Layout>} />
         <Route path="/games/gear-factory" element={<Layout><GearFactoryGame /></Layout>} />
+        {/* Unique & Group Games */}
+        <Route path="/games/dot-placement" element={<Layout><DotPlacementGame /></Layout>} />
+        <Route path="/games/sister-showdown" element={<Layout><SisterShowdownGame /></Layout>} />
+        <Route path="/games/conveyor-sorter" element={<Layout><ConveyorSorterGame /></Layout>} />
+        <Route path="/games/train-sequencer" element={<Layout><TrainSequencerGame /></Layout>} />
 
         {/* 404 */}
         <Route path="*" element={<Layout><NotFoundPage /></Layout>} />

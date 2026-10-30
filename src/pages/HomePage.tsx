@@ -111,7 +111,7 @@ export default function HomePage() {
           transition={{ duration: 0.6 }}
         >
           <span className="inline-block bg-yellow-400 text-yellow-900 text-sm font-bold px-4 py-1.5 rounded-full mb-4 shadow-sm">
-            🌟 Arabic Learning Adventure
+            🌟 Learn Arabic with Anshad
           </span>
           <h1 className="text-4xl md:text-6xl font-extrabold text-[#243247] leading-tight mb-2">
             Learn Arabic Letters
@@ -261,7 +261,7 @@ export default function HomePage() {
         </svg>
         <div className="bg-blue-500/10 text-center py-6 text-slate-500 text-sm">
           <Star className="inline w-4 h-4 text-yellow-500 fill-yellow-400 mr-1" />
-          Arabic Learning Adventure — Made with love for young learners
+          Learn Arabic with Anshad — Made with love for young learners
           <Star className="inline w-4 h-4 text-yellow-500 fill-yellow-400 ml-1" />
         </div>
       </div>

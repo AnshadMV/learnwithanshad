@@ -273,72 +273,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null }
   }, [])
 
-  const signInWithStudentPin = useCallback(async (username: string, pin: string) => {
-    let cleanUser = username.trim().toLowerCase()
-    if (cleanUser.includes('@')) {
-      cleanUser = cleanUser.split('@')[0]
+  const signInWithStudentPin = useCallback(async (usernameOrEmail: string, pinOrPassword: string) => {
+    const rawInput = usernameOrEmail.trim().toLowerCase()
+    const rawPass = pinOrPassword.trim()
+
+    // Candidates to test against Supabase auth in order
+    const attempts: Array<{ email: string; password: string }> = []
+
+    if (rawInput.includes('@')) {
+      attempts.push({ email: rawInput, password: rawPass })
+      attempts.push({ email: rawInput, password: `pin_${rawPass}` })
+    } else {
+      const cleanUser = rawInput.replace(/[^a-z0-9_-]/g, '')
+      // 1. Direct email alias (such as fathima@gmail.com)
+      attempts.push({ email: `${cleanUser}@gmail.com`, password: rawPass })
+      // 2. Student portal format
+      attempts.push({ email: `${cleanUser}@student.arabiclearn.com`, password: `pin_${rawPass}` })
+      attempts.push({ email: `${cleanUser}@student.arabiclearn.com`, password: rawPass })
     }
-    cleanUser = cleanUser.replace(/[^a-z0-9_-]/g, '')
-    const studentEmail = `${cleanUser}@student.arabiclearn.com`
-    const password = `pin_${pin}`
 
-    try {
-      // 1. Try standard sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: studentEmail,
-        password,
-      })
+    let authError: any = null
 
-      if (!error && data?.user) {
-        setUser(data.user)
-        return { error: null }
-      }
-
-      // 2. Auto-provision student if not already present
-      if (error && (error.message.includes('Invalid login credentials') || error.message.includes('User not found'))) {
-        const displayName = cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1)
-        const signUpRes = await supabase.auth.signUp({
-          email: studentEmail,
-          password,
-          options: {
-            data: { display_name: displayName, role: 'student' },
-          },
+    for (const attempt of attempts) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: attempt.email,
+          password: attempt.password,
         })
-        if (!signUpRes.error && signUpRes.data?.user) {
-          setUser(signUpRes.data.user)
+
+        if (!error && data?.user) {
+          setUser(data.user)
           return { error: null }
         }
-        if (signUpRes.error) {
-          if (signUpRes.error.message.includes('fetch') || signUpRes.error.message.includes('NetworkError')) {
-            throw signUpRes.error
-          }
-          return { error: signUpRes.error }
-        }
-      }
 
-      if (error) {
-        if (error.message.includes('fetch') || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          throw error
+        if (error && !error.message.includes('Invalid login credentials')) {
+          authError = error
         }
-        return { error }
+      } catch (err: any) {
+        authError = err
       }
-    } catch (err: any) {
-      // RESILIENT OFFLINE FALLBACK for Student
-      console.warn('Supabase auth network unreachable, activating resilient student session:', err)
+    }
+
+    // If auto-provisioning is allowed on student portal domain
+    if (authError && (authError.message?.includes('fetch') || authError.message?.includes('NetworkError'))) {
+      console.warn('Supabase auth network unreachable, activating resilient student session:', authError)
+      const cleanUser = rawInput.includes('@') ? rawInput.split('@')[0] : rawInput.replace(/[^a-z0-9_-]/g, '')
       const displayName = cleanUser.charAt(0).toUpperCase() + cleanUser.slice(1)
       const mockStudentId = `student_${cleanUser}`
+      const studentEmail = rawInput.includes('@') ? rawInput : `${cleanUser}@gmail.com`
       const mockUser: any = {
         id: mockStudentId,
         email: studentEmail,
         user_metadata: {
           role: 'student',
-          display_name: `${displayName} Explorer`,
+          display_name: displayName,
         },
       }
       const mockProfile: Profile = {
         id: mockStudentId,
         email: studentEmail,
-        display_name: `${displayName} Explorer`,
+        display_name: displayName,
         role: 'student',
         avatar_url: null,
         is_active: true,
@@ -352,16 +346,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null }
     }
 
-    return { error: null }
+    return { error: authError || { message: 'Invalid username, email, or PIN password.' } }
   }, [])
 
   const signInAsDemo = useCallback(async (role: 'teacher' | 'student') => {
     const mockUser: any = {
-      id: `demo_${role}_${Date.now()}`,
-      email: `demo_${role}@arabiclearn.local`,
+      id: role === 'teacher' ? 'teacher_anshad' : 'student_fathima',
+      email: role === 'teacher' ? 'anshad@gmail.com' : 'fathima@gmail.com',
       user_metadata: {
         role,
-        display_name: role === 'teacher' ? 'Ustadhah Sarah (Demo)' : 'Zaid Explorer (Demo)',
+        display_name: role === 'teacher' ? 'Ustadh Anshad' : 'Fathima',
       },
     }
     const mockProfile: Profile = {

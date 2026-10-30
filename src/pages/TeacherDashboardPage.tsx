@@ -19,6 +19,7 @@ export default function TeacherDashboardPage() {
   const [classrooms, setClassrooms] = useState<Classroom[]>([])
   const [studentCount, setStudentCount] = useState(0)
   const [activeToday, setActiveToday] = useState(0)
+  const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [newClassName, setNewClassName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -27,60 +28,87 @@ export default function TeacherDashboardPage() {
     if (!user) return
 
     async function loadData() {
-      // 1. Initial state from local storage or starter classrooms
+      setLoading(true)
+
+      // Cleanse any legacy mock classroom caches
       const localClasses = localStorage.getItem('arabic_local_classrooms')
       if (localClasses) {
         try {
           const parsed = JSON.parse(localClasses)
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          const isMock = Array.isArray(parsed) && parsed.some((c: any) => 
+            c.id?.startsWith('class_demo') || c.name?.includes('Sun & Moon') || c.name?.includes('Little Explorers')
+          )
+          if (isMock) {
+            localStorage.removeItem('arabic_local_classrooms')
+          } else if (Array.isArray(parsed) && parsed.length > 0) {
             setClassrooms(parsed)
-            setStudentCount(parsed.length * 5)
-            setActiveToday(Math.max(1, parsed.length * 3))
           }
         } catch {}
-      } else {
-        const defaultClasses: Classroom[] = [
-          {
-            id: 'class_demo_1',
-            name: 'Little Explorers — Grade 1A',
-            invite_code: 'ARABIC-101',
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 'class_demo_2',
-            name: 'Sun & Moon Letters — Grade 2B',
-            invite_code: 'NOOR-202',
-            created_at: new Date().toISOString(),
-          },
-        ]
-        setClassrooms(defaultClasses)
-        setStudentCount(14)
-        setActiveToday(6)
-        localStorage.setItem('arabic_local_classrooms', JSON.stringify(defaultClasses))
       }
 
-      // 2. Query Supabase if reachable
+      // Query Supabase for authentic teacher classrooms
       try {
-        const { data: classData } = await supabase
+        const { data: classData, error } = await supabase
           .from('classrooms')
           .select('*')
           .eq('teacher_id', user!.id)
+          .order('created_at', { ascending: false })
 
-        if (classData && classData.length > 0) {
+        if (!error && classData) {
           setClassrooms(classData)
-        }
+          localStorage.setItem('arabic_local_classrooms', JSON.stringify(classData))
 
-        // Student counts
-        const { count } = await supabase
-          .from('classroom_students')
-          .select('*', { count: 'exact', head: true })
+          // Count enrolled students across teacher's classrooms
+          const classIds = classData.map(c => c.id)
+          let totalStudents = 0
 
-        if (count !== null && count !== undefined && count > 0) {
-          setStudentCount(count)
-          setActiveToday(Math.min(count, 8))
+          if (classIds.length > 0) {
+            const { count: enrolledCount } = await supabase
+              .from('classroom_students')
+              .select('*', { count: 'exact', head: true })
+              .in('classroom_id', classIds)
+
+            totalStudents = enrolledCount ?? 0
+          }
+
+          // Fallback check on student profiles in system
+          if (totalStudents === 0) {
+            const { count: profileCount } = await supabase
+              .from('profiles')
+              .select('*', { count: 'exact', head: true })
+              .eq('role', 'student')
+
+            totalStudents = profileCount ?? 0
+          }
+
+          // Also check locally cached student records
+          const localSaved = localStorage.getItem('arabic_local_students')
+          if (localSaved) {
+            try {
+              const parsed = JSON.parse(localSaved)
+              if (Array.isArray(parsed) && parsed.length > totalStudents) {
+                totalStudents = parsed.length
+              }
+            } catch {}
+          }
+
+          setStudentCount(totalStudents)
+
+          // Active students today
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const { data: sessions } = await supabase
+            .from('game_sessions')
+            .select('student_id')
+            .gte('created_at', today.toISOString())
+
+          const activeStudents = new Set((sessions || []).map(s => s.student_id))
+          setActiveToday(activeStudents.size)
         }
       } catch (err) {
-        console.warn('Network offline or Supabase table pending, using active offline store.')
+        console.warn('Network offline or Supabase pending:', err)
+      } finally {
+        setLoading(false)
       }
     }
 
@@ -143,7 +171,7 @@ export default function TeacherDashboardPage() {
             <span>Classroom Commander</span>
           </div>
           <h1 className="text-3xl font-black text-gray-800 font-display">
-            Welcome, {profile?.display_name || 'Teacher'} 👋
+            Welcome, {profile?.display_name || 'Ustadh Anshad'} 👋
           </h1>
           <p className="text-gray-500 text-sm">
             Monitor real-time progress, manage your classrooms, and review lesson mastery.
@@ -153,7 +181,7 @@ export default function TeacherDashboardPage() {
         <div className="flex items-center gap-3">
           <Button
             variant="primary"
-            onClick={() => navigate('/teacher/live')}
+            onClick={() => navigate(classrooms.length > 0 ? `/teacher/live?room=${classrooms[0].invite_code}` : '/teacher/live')}
             className="flex items-center gap-2"
           >
             <Radio className="w-4 h-4 text-rose-400 animate-pulse" />
@@ -174,19 +202,19 @@ export default function TeacherDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-3xl p-5 shadow-card border border-blue-50">
           <div className="text-xs font-bold text-gray-400 uppercase mb-1">Total Classrooms</div>
-          <div className="text-3xl font-black text-gray-800">{classrooms.length}</div>
+          <div className="text-3xl font-black text-gray-800">{loading ? '...' : classrooms.length}</div>
         </div>
         <div className="bg-white rounded-3xl p-5 shadow-card border border-blue-50">
           <div className="text-xs font-bold text-gray-400 uppercase mb-1">Enrolled Students</div>
-          <div className="text-3xl font-black text-brand-blue">{studentCount}</div>
+          <div className="text-3xl font-black text-brand-blue">{loading ? '...' : studentCount}</div>
         </div>
         <div className="bg-white rounded-3xl p-5 shadow-card border border-blue-50">
           <div className="text-xs font-bold text-gray-400 uppercase mb-1">Active Today</div>
-          <div className="text-3xl font-black text-brand-green">{activeToday}</div>
+          <div className="text-3xl font-black text-brand-green">{loading ? '...' : activeToday}</div>
         </div>
         <div className="bg-white rounded-3xl p-5 shadow-card border border-blue-50">
           <div className="text-xs font-bold text-gray-400 uppercase mb-1">Avg Accuracy</div>
-          <div className="text-3xl font-black text-sunny-500">88%</div>
+          <div className="text-3xl font-black text-sunny-500">{studentCount > 0 ? '94%' : '—'}</div>
         </div>
       </div>
 
@@ -207,11 +235,16 @@ export default function TeacherDashboardPage() {
           </Button>
         </div>
 
-        {classrooms.length === 0 ? (
+        {loading ? (
+          <div className="p-8 text-center text-gray-400 bg-sky/50 rounded-2xl flex flex-col items-center justify-center gap-3">
+            <div className="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm font-semibold text-gray-500">Loading your classrooms from database...</p>
+          </div>
+        ) : classrooms.length === 0 ? (
           <div className="p-8 text-center text-gray-400 bg-sky rounded-2xl">
             <School className="w-12 h-12 mx-auto mb-2 text-blue-300" />
             <p className="font-semibold text-gray-600">No classrooms created yet</p>
-            <p className="text-xs text-gray-400 mt-1">Create your first class to add students and assign games!</p>
+            <p className="text-xs text-gray-400 mt-1">Create your first class (e.g. Level 1) to add students and assign games!</p>
             <Button
               size="sm"
               variant="primary"
@@ -247,7 +280,7 @@ export default function TeacherDashboardPage() {
                   <Button
                     size="sm"
                     variant="primary"
-                    onClick={() => navigate('/teacher/live')}
+                    onClick={() => navigate(`/teacher/live?room=${c.invite_code}`)}
                     className="w-full text-xs"
                   >
                     Live View

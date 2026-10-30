@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Pickaxe, Diamond } from 'lucide-react'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
+import { getConfusableDistractors } from '@/data/letterPedagogy'
 import { useSound } from '@/hooks/useSound'
 import { useGameSession } from '@/hooks/useGameSession'
 import GameComplete from '@/components/game/GameComplete'
@@ -25,13 +26,33 @@ export default function GemMinerGame() {
 
   const rounds = useMemo(() => {
     const list = []
+    const formKeys: (keyof typeof ARABIC_LETTERS[0]['forms'])[] = ['isolated', 'initial', 'medial', 'final', 'isolated']
+
     for (let i = 0; i < 5; i++) {
       const target = paramLetter
         ? ARABIC_LETTERS.find(l => l.id === paramLetter) || ARABIC_LETTERS[i]
         : ARABIC_LETTERS[(i * 3 + 2) % ARABIC_LETTERS.length]
-      const wrong = pickRandom(ARABIC_LETTERS.filter(l => l.id !== target.id), 3)
-      const options = shuffle([target, ...wrong])
-      list.push({ target, options })
+
+      // When letter-scoped, pick pedagogical confusable distractors
+      const confusableIds = getConfusableDistractors(target.id, 3)
+      const wrong = confusableIds.length >= 2
+        ? confusableIds.map(id => ARABIC_LETTERS.find(l => l.id === id)!).filter(Boolean)
+        : pickRandom(ARABIC_LETTERS.filter(l => l.id !== target.id), 3)
+
+      const formKey = formKeys[i]
+      const targetFormText = paramLetter ? target.forms[formKey] : target.letter
+
+      const options = shuffle([
+        { id: target.id, letter: targetFormText, name_english: target.name_english, formLabel: paramLetter ? formKey : '' },
+        ...wrong.slice(0, 3).map(w => ({
+          id: w.id,
+          letter: paramLetter ? w.forms[formKey] : w.letter,
+          name_english: w.name_english,
+          formLabel: paramLetter ? formKey : '',
+        }))
+      ])
+
+      list.push({ target, targetFormText, formKey, options })
     }
     return list
   }, [paramLetter])
@@ -76,12 +97,20 @@ export default function GemMinerGame() {
         </span>
       </div>
 
+      {/* Letter-Specific Mode Banner */}
+      {paramLetter && (
+        <div className="flex items-center gap-2 text-sm font-bold text-violet-700 bg-violet-50 border border-violet-200 rounded-xl px-4 py-2">
+          <span>🎯</span>
+          <span>Letter-Specific Session: <span className="font-arabic text-lg ml-1" dir="rtl">{current.target.letter}</span> ({current.target.name_english})</span>
+        </div>
+      )}
+
       {gameState === 'intro' && (
         <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="bg-white rounded-3xl p-8 shadow-card text-center space-y-6 border-4 border-violet-200">
           <div className="text-6xl animate-bounce-gentle">💎</div>
           <h1 className="text-3xl font-black text-gray-800">Gem Miner Drill</h1>
           <p className="text-gray-600 max-w-md mx-auto">
-            Drill deep underground to extract sparkling Arabic letter gems! Spot and mine the requested letter crystal.
+            Drill deep underground to extract sparkling Arabic letter gems! Spot and mine the requested letter crystal among lookalikes.
           </p>
           <Button variant="primary" onClick={handleStart} className="px-8 py-3.5 text-base font-bold bg-violet-600 hover:bg-violet-700">
             Start Drilling ⛏️
@@ -93,9 +122,11 @@ export default function GemMinerGame() {
         <motion.div key={round} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
           <div className="bg-gradient-to-r from-violet-600 to-indigo-700 p-8 rounded-3xl shadow-lg text-white text-center relative overflow-hidden">
             <Diamond className="w-12 h-12 mx-auto text-cyan-300 animate-pulse mb-2" />
-            <p className="text-violet-200 font-bold uppercase tracking-wider text-xs">Mine the target crystal:</p>
+            <p className="text-violet-200 font-bold uppercase tracking-wider text-xs">
+              Mine the target crystal {current.formKey ? `(${current.formKey} form)` : ''}:
+            </p>
             <div className="text-6xl font-black font-arabic my-2 drop-shadow" dir="rtl">
-              {current.target.letter}
+              {current.targetFormText || current.target.letter}
             </div>
             <p className="text-violet-200 text-sm font-semibold">({current.target.name_english})</p>
           </div>

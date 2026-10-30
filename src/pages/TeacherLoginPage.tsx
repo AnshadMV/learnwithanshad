@@ -36,10 +36,23 @@ export default function TeacherLoginPage() {
     }
   }
 
-  const handleDemoTeacherLogin = async () => {
+  const handleQuickTeacherLogin = async () => {
+    setEmail('anshad@gmail.com')
+    setPassword('Anshadv@123')
     setLoading(true)
-    await signInAsDemo('teacher')
-    navigate('/teacher/dashboard')
+    setError(null)
+    try {
+      const { error: loginError } = await signIn('anshad@gmail.com', 'Anshadv@123')
+      if (loginError) {
+        await signInAsDemo('teacher')
+      }
+      navigate('/teacher/dashboard')
+    } catch {
+      await signInAsDemo('teacher')
+      navigate('/teacher/dashboard')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -113,16 +126,16 @@ export default function TeacherLoginPage() {
           </Button>
         </form>
 
-        {/* 1-Click Demo Teacher */}
+        {/* 1-Click Quick Login Teacher */}
         <div className="mt-4 pt-4 border-t border-gray-100">
           <Button
             type="button"
             variant="secondary"
-            onClick={handleDemoTeacherLogin}
+            onClick={handleQuickTeacherLogin}
             className="w-full py-2.5 text-xs font-bold flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
           >
             <Play className="w-3.5 h-3.5" />
-            <span>1-Click Educator Demo Login (Sarah)</span>
+            <span>1-Click Teacher Login (Anshad)</span>
           </Button>
         </div>
 

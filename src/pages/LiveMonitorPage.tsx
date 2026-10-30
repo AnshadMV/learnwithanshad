@@ -13,12 +13,14 @@ import {
   Check,
   Sparkles,
   Trophy,
+  Tv,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import ArabicText from '@/components/arabic/ArabicText'
+import TeacherLiveScreenWatcher from '@/components/live/TeacherLiveScreenWatcher'
 
 interface LiveStudent {
   student_id: string
@@ -36,43 +38,157 @@ export default function LiveMonitorPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const roomCode = searchParams.get('room') || 'ARABIC-101'
+  const roomCode = searchParams.get('room') || 'LEVEL-1'
 
   const [liveStudents, setLiveStudents] = useState<LiveStudent[]>([])
   const [loading, setLoading] = useState(true)
+  const [roomName, setRoomName] = useState<string>('Level 1')
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [recentBroadcastNotice, setRecentBroadcastNotice] = useState<string | null>(null)
+  const [watchingStudent, setWatchingStudent] = useState<LiveStudent | null>(null)
 
-  // Seed demo items initially so screen has rich context immediately
+  // 1. Fetch dynamic classroom and enrolled student status from database
   useEffect(() => {
-    setLiveStudents([
-      {
-        student_id: 'demo_1',
-        display_name: 'Zaid Explorer',
-        current_game: 'letter-safari',
-        current_letter: 'ba',
-        score: 60,
-        accuracy: 90,
-        questions_completed: 6,
-        status: 'playing',
-        last_heartbeat: new Date().toISOString(),
-      },
-      {
-        student_id: 'demo_2',
-        display_name: 'Amina Noor',
-        current_game: 'balloon-pop',
-        current_letter: 'jeem',
-        score: 80,
-        accuracy: 95,
-        questions_completed: 8,
-        status: 'completed',
-        last_heartbeat: new Date().toISOString(),
-      },
-    ])
-    setLoading(false)
-  }, [])
+    async function loadRoomStatus() {
+      setLoading(true)
+      try {
+        let classId: string | null = null
+        let name: string = 'Level 1'
+
+        // Match room by invite code
+        const { data: matchedClass } = await supabase
+          .from('classrooms')
+          .select('id, name, invite_code')
+          .eq('invite_code', roomCode)
+          .maybeSingle()
+
+        if (matchedClass) {
+          classId = matchedClass.id
+          name = matchedClass.name
+        } else if (user) {
+          // If roomCode not found, fallback to teacher's primary classroom
+          const { data: myClasses } = await supabase
+            .from('classrooms')
+            .select('id, name, invite_code')
+            .eq('teacher_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+
+          if (myClasses && myClasses[0]) {
+            classId = myClasses[0].id
+            name = myClasses[0].name
+          }
+        }
+
+        setRoomName(name)
+
+        // Query students enrolled in this classroom
+        let studentProfiles: any[] = []
+
+        if (classId) {
+          const { data: enrolled } = await supabase
+            .from('classroom_students')
+            .select('student_id')
+            .eq('classroom_id', classId)
+
+          const studentIds = (enrolled || []).map(e => e.student_id)
+          if (studentIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, display_name, email')
+              .in('id', studentIds)
+
+            if (profiles) studentProfiles = profiles
+          }
+        }
+
+        // If no enrollments, check general student profiles
+        if (studentProfiles.length === 0) {
+          const { data: fallbackProfiles } = await supabase
+            .from('profiles')
+            .select('id, display_name, email')
+            .eq('role', 'student')
+
+          if (fallbackProfiles) studentProfiles = fallbackProfiles
+        }
+
+        // Also merge any locally tracked student accounts
+        const localStudents = localStorage.getItem('arabic_local_students')
+        if (localStudents) {
+          try {
+            const parsed = JSON.parse(localStudents)
+            if (Array.isArray(parsed)) {
+              for (const loc of parsed) {
+                const alreadyExists = studentProfiles.some(sp => 
+                  sp.id === loc.id || 
+                  sp.display_name?.trim().toLowerCase() === loc.display_name?.trim().toLowerCase()
+                )
+                if (!alreadyExists) {
+                  studentProfiles.push(loc)
+                }
+              }
+            }
+          } catch {}
+        }
+
+        if (studentProfiles.length > 0) {
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const pIds = studentProfiles.map(p => p.id)
+
+          const { data: sessions } = await supabase
+            .from('game_sessions')
+            .select('*')
+            .in('student_id', pIds)
+            .gte('created_at', today.toISOString())
+            .order('created_at', { ascending: false })
+
+          const list: LiveStudent[] = studentProfiles.map(p => {
+            const latest = sessions?.find(s => s.student_id === p.id)
+            if (latest) {
+              const diffMs = Date.now() - new Date(latest.created_at).getTime()
+              const isRecent = diffMs < 5 * 60 * 1000 // within 5 minutes
+              return {
+                student_id: p.id,
+                display_name: p.display_name,
+                current_game: latest.game_slug || 'letter-safari',
+                current_letter: latest.letter_id || 'alef',
+                score: latest.score || 0,
+                accuracy: latest.accuracy || 100,
+                questions_completed: latest.questions_correct || 0,
+                status: isRecent ? 'playing' : 'completed',
+                last_heartbeat: latest.created_at,
+              }
+            }
+            return {
+              student_id: p.id,
+              display_name: p.display_name,
+              current_game: 'idle',
+              current_letter: '—',
+              score: 0,
+              accuracy: 100,
+              questions_completed: 0,
+              status: 'idle',
+              last_heartbeat: new Date().toISOString(),
+            }
+          })
+
+          setLiveStudents(list)
+        } else {
+          setLiveStudents([])
+        }
+      } catch (err) {
+        console.warn('Live monitor loading warning:', err)
+        setLiveStudents([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadRoomStatus()
+  }, [roomCode, user, lastRefreshed])
 
   // Setup Supabase Realtime Broadcast & Postgres listeners
   useEffect(() => {
@@ -85,7 +201,10 @@ export default function LiveMonitorPage() {
         if (!payload) return
 
         setLiveStudents(prev => {
-          const existingIdx = prev.findIndex(s => s.student_id === payload.student_id)
+          const existingIdx = prev.findIndex(s => 
+            s.student_id === payload.student_id || 
+            s.display_name.trim().toLowerCase() === payload.display_name?.trim().toLowerCase()
+          )
           const updatedItem: LiveStudent = {
             student_id: payload.student_id,
             display_name: payload.display_name,
@@ -109,7 +228,29 @@ export default function LiveMonitorPage() {
 
         setRecentBroadcastNotice(`⚡ ${payload.display_name} just scored in ${payload.game_slug}!`)
         setTimeout(() => setRecentBroadcastNotice(null), 3000)
-        setLastRefreshed(new Date())
+      })
+      .on('broadcast', { event: 'student_viewport' }, ({ payload }) => {
+        if (!payload) return
+
+        setLiveStudents(prev => {
+          const existingIdx = prev.findIndex(s => 
+            s.student_id === payload.student_id || 
+            s.display_name.trim().toLowerCase() === payload.display_name?.trim().toLowerCase()
+          )
+          if (existingIdx !== -1) {
+            const next = [...prev]
+            next[existingIdx] = {
+              ...next[existingIdx],
+              current_game: payload.gameSlug || payload.game_slug || next[existingIdx].current_game,
+              current_letter: payload.letterId || payload.letter_id || next[existingIdx].current_letter,
+              score: payload.score !== undefined ? payload.score : next[existingIdx].score,
+              status: 'playing',
+              last_heartbeat: new Date().toISOString(),
+            }
+            return next
+          }
+          return prev
+        })
       })
       .subscribe()
 
@@ -203,70 +344,150 @@ export default function LiveMonitorPage() {
       </AnimatePresence>
 
       {/* Classroom Activity Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {liveStudents.map(student => (
-          <motion.div
-            key={student.student_id}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-6 shadow-card border-2 border-blue-50 hover:border-blue-200 transition-all space-y-4"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-sky text-brand-blue font-extrabold flex items-center justify-center text-lg shadow-sm">
-                  {student.display_name.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-800">{student.display_name}</h3>
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <span
-                      className={`inline-block w-2 h-2 rounded-full ${
-                        student.status === 'playing' ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'
-                      }`}
-                    />
-                    <span className="capitalize font-semibold text-gray-500">
-                      {student.status === 'playing' ? 'Active Now' : 'Session Completed'}
-                    </span>
+      {loading ? (
+        <div className="bg-white rounded-3xl p-12 text-center shadow-card border border-blue-50 flex flex-col items-center justify-center gap-3">
+          <div className="w-8 h-8 border-4 border-brand-blue border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-gray-500">Connecting to classroom feed and active sessions...</p>
+        </div>
+      ) : liveStudents.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 text-center shadow-card border-2 border-dashed border-blue-200 space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-blue-50 text-brand-blue flex items-center justify-center text-3xl">
+            📡
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold text-gray-800">
+              Room {roomCode} ({roomName}) is Live & Ready
+            </h3>
+            <p className="text-sm text-gray-400 max-w-md mx-auto">
+              Waiting for students to start learning. When learners launch letters or games, their live scores, accuracy, and activities will stream here instantly!
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <Button size="sm" variant="secondary" onClick={handleCopyShareLink}>
+              <Copy className="w-4 h-4 mr-1.5" />
+              <span>{copied ? 'Copied Room Link!' : 'Copy Room Link'}</span>
+            </Button>
+            <Button size="sm" variant="primary" onClick={() => navigate('/alphabet')}>
+              <span>Launch Alphabet Lesson</span>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {liveStudents.map(student => (
+            <motion.div
+              key={student.student_id}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-3xl p-6 shadow-card border-2 border-blue-50 hover:border-blue-200 transition-all space-y-4"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-sky text-brand-blue font-extrabold flex items-center justify-center text-lg shadow-sm">
+                    {student.display_name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800">{student.display_name}</h3>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span
+                        className={`inline-block w-2 h-2 rounded-full ${
+                          student.status === 'playing'
+                            ? 'bg-emerald-500 animate-pulse'
+                            : student.status === 'completed'
+                            ? 'bg-blue-500'
+                            : 'bg-amber-400'
+                        }`}
+                      />
+                      <span className="capitalize font-semibold text-gray-500">
+                        {student.status === 'playing'
+                          ? 'Active Now'
+                          : student.status === 'completed'
+                          ? 'Session Completed'
+                          : 'Ready in Classroom'}
+                      </span>
+                    </div>
                   </div>
                 </div>
+
+                {student.current_letter && student.current_letter !== '—' && (
+                  <div className="text-center px-3 py-1.5 rounded-2xl bg-blue-50 border border-blue-100">
+                    <span className="text-[10px] font-bold text-gray-400 block uppercase">Letter</span>
+                    <span className="font-arabic font-bold text-brand-blue text-lg">
+                      {student.current_letter}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {student.current_letter && (
-                <div className="text-center px-3 py-1.5 rounded-2xl bg-blue-50 border border-blue-100">
-                  <span className="text-[10px] font-bold text-gray-400 block uppercase">Letter</span>
-                  <span className="font-arabic font-bold text-brand-blue text-lg">
-                    {student.current_letter}
+              <div className="bg-sky/60 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
+                  <span>Current Activity:</span>
+                  <span className="text-brand-blue font-bold capitalize">
+                    {student.current_game && student.current_game !== 'idle'
+                      ? student.current_game.replace(/-/g, ' ')
+                      : 'Classroom Explorer'}
                   </span>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
+                  <span>Score:</span>
+                  <span className="text-emerald-600 font-extrabold text-sm">{student.score} pts</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
+                  <span>Accuracy:</span>
+                  <span className="text-purple-600 font-extrabold text-sm">{student.accuracy}%</span>
+                </div>
+              </div>
 
-            <div className="bg-sky/60 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
-                <span>Current Game:</span>
-                <span className="text-brand-blue font-bold capitalize">
-                  {student.current_game ? student.current_game.replace('-', ' ') : 'Alphabet Lesson'}
+              {/* Live Screen Preview Box */}
+              <div 
+                onClick={() => setWatchingStudent(student)}
+                className="relative aspect-video rounded-2xl bg-slate-900 border-2 border-slate-700 hover:border-brand-blue cursor-pointer overflow-hidden group shadow-inner transition-all flex flex-col justify-between p-3 text-white"
+              >
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className="flex items-center gap-1 font-mono text-emerald-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE SCREEN FEED
+                  </span>
+                  <span className="bg-black/60 px-1.5 py-0.5 rounded text-[9px] font-bold text-slate-300">
+                    {student.current_game || 'Letter Lesson'}
+                  </span>
+                </div>
+
+                <div className="text-center my-auto py-2">
+                  <span className="text-3xl font-arabic font-black text-sunny-300 block drop-shadow">
+                    {student.current_letter || 'ب'}
+                  </span>
+                  <span className="text-[10px] text-slate-300 font-semibold block mt-1">
+                    Click to watch {student.display_name}'s live screen
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-white bg-brand-blue/80 group-hover:bg-brand-blue py-2 rounded-xl transition-all shadow">
+                  <Tv className="w-3.5 h-3.5" />
+                  <span>Watch Live Screen 📺</span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-gray-400 flex items-center justify-between pt-2 border-t border-gray-100">
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" /> Live websocket active
                 </span>
+                <span>Updated {new Date(student.last_heartbeat).toLocaleTimeString()}</span>
               </div>
-              <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
-                <span>Score:</span>
-                <span className="text-emerald-600 font-extrabold text-sm">{student.score} pts</span>
-              </div>
-              <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
-                <span>Accuracy:</span>
-                <span className="text-purple-600 font-extrabold text-sm">{student.accuracy}%</span>
-              </div>
-            </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
-            <div className="text-[11px] text-gray-400 flex items-center justify-between pt-2 border-t border-gray-100">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> Live websocket active
-              </span>
-              <span>Updated {new Date(student.last_heartbeat).toLocaleTimeString()}</span>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+      {/* Live Video / Viewport Screen Watcher Modal */}
+      <AnimatePresence>
+        {watchingStudent && (
+          <TeacherLiveScreenWatcher
+            student={watchingStudent}
+            onClose={() => setWatchingStudent(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Share Live Room Modal */}
       <Modal
