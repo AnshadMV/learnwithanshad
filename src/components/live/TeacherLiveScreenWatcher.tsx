@@ -48,6 +48,7 @@ interface ViewportState {
   accuracy: number
   status: string
   lastUpdated: string
+  isMobile?: boolean
 }
 
 export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLiveScreenWatcherProps) {
@@ -153,6 +154,7 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
           score: payload.score !== undefined ? payload.score : prev.score,
           accuracy: payload.accuracy !== undefined ? payload.accuracy : prev.accuracy,
           status: payload.status || prev.status,
+          isMobile: payload.isMobile !== undefined ? payload.isMobile : prev.isMobile,
           lastUpdated: new Date().toLocaleTimeString(),
         }))
         const gameDisplay = (payload.gameSlug || payload.game_slug || 'Letter Game').replace(/-/g, ' ')
@@ -316,6 +318,10 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                 ) : liveSnapshot ? (
                   <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold border border-teal-500/30">
                     Live Frame Stream
+                  </span>
+                ) : viewportState.isMobile ? (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1">
+                    📱 Mobile Live Mirror
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30">
@@ -483,15 +489,23 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
             {/* Bottom Controls Bar */}
             <div className="w-full mt-3 flex items-center justify-between gap-3 px-2">
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={requestScreenShare}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5 shadow-sm"
-                >
-                  <Tv className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Request 1080p Screen Stream</span>
-                </Button>
+                {viewportState.isMobile ? (
+                  <span className="text-xs text-amber-300 bg-amber-950/60 border border-amber-500/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-bold">
+                    <span>📱 Mobile Device</span>
+                    <span>•</span>
+                    <span>Live Game & Touches Synced</span>
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={requestScreenShare}
+                    className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Tv className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Request 1080p Screen Stream</span>
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="primary"

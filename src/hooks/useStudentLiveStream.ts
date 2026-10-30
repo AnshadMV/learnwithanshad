@@ -14,6 +14,12 @@ export function useStudentLiveStream() {
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [incomingReaction, setIncomingReaction] = useState<string | null>(null)
   const [screenShareRequested, setScreenShareRequested] = useState(false)
+  const [mobileNoticeOpen, setMobileNoticeOpen] = useState(false)
+
+  const isDisplayMediaSupported =
+    typeof navigator !== 'undefined' &&
+    !!navigator.mediaDevices &&
+    typeof navigator.mediaDevices.getDisplayMedia === 'function'
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -48,8 +54,10 @@ export function useStudentLiveStream() {
       score: globalState.score || 0,
       accuracy: globalState.accuracy || 100,
       status: globalState.status || (pathname.startsWith('/games') ? 'playing' : 'idle'),
+      isMobile: !isDisplayMediaSupported,
+      deviceType: isDisplayMediaSupported ? 'desktop' : 'mobile',
     }
-  }, [location.pathname, location.search])
+  }, [location.pathname, location.search, isDisplayMediaSupported])
 
   // ---------------------------------------------------------------------------
   // Capture & Broadcast Video Frame Snapshot (Image Stream)
@@ -361,8 +369,9 @@ export function useStudentLiveStream() {
   // ---------------------------------------------------------------------------
   const startScreenShare = useCallback(async () => {
     try {
-      if (!navigator.mediaDevices?.getDisplayMedia) {
-        alert('Screen sharing is not supported on this browser.')
+      if (!isDisplayMediaSupported) {
+        setMobileNoticeOpen(true)
+        setScreenShareRequested(false)
         return
       }
 
@@ -456,5 +465,8 @@ export function useStudentLiveStream() {
     stopScreenShare,
     incomingReaction,
     screenShareRequested,
+    isDisplayMediaSupported,
+    mobileNoticeOpen,
+    setMobileNoticeOpen,
   }
 }
