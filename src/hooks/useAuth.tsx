@@ -24,6 +24,7 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>
   signInWithStudentPin: (username: string, pin: string) => Promise<{ error: AuthError | Error | null }>
   signInAsDemo: (role: 'teacher' | 'student') => Promise<void>
+  joinAsStudent: (displayName: string, roomCode?: string, avatar?: string) => Promise<Profile>
   signUp: (email: string, password: string, displayName: string, role?: Profile['role']) => Promise<{ error: AuthError | null }>
   signOut: () => Promise<void>
 }
@@ -374,6 +375,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(mockProfile)
   }, [])
 
+  const joinAsStudent = useCallback(async (displayName: string, roomCode = 'LEVEL-1', avatar?: string): Promise<Profile> => {
+    const cleanName = displayName.trim() || 'Explorer'
+    const cleanCode = (roomCode.trim() || 'LEVEL-1').toUpperCase()
+    const studentUid = `student_${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now().toString(36)}`
+    const studentEmail = `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'student'}@student.arabiclearn.com`
+
+    const studentUser: any = {
+      id: studentUid,
+      email: studentEmail,
+      user_metadata: {
+        role: 'student',
+        display_name: cleanName,
+        room_code: cleanCode,
+        avatar_url: avatar || '⭐',
+      },
+    }
+
+    const studentProfile: Profile = {
+      id: studentUid,
+      email: studentEmail,
+      display_name: cleanName,
+      role: 'student',
+      avatar_url: avatar || '⭐',
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    localStorage.setItem(
+      'arabic_auth_session',
+      JSON.stringify({ user: studentUser, profile: studentProfile, roomCode: cleanCode })
+    )
+    localStorage.setItem('arabic_student_room', cleanCode)
+
+    setUser(studentUser)
+    setProfile(studentProfile)
+
+    // Sync to profiles table if reachable
+    try {
+      await supabase.from('profiles').upsert({
+        id: studentUid,
+        display_name: cleanName,
+        email: studentEmail,
+        role: 'student',
+        is_active: true,
+      } as any)
+    } catch {}
+
+    return studentProfile
+  }, [])
+
   const signUp = useCallback(
     async (
       email: string,
@@ -464,6 +516,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signInWithStudentPin,
     signInAsDemo,
+    joinAsStudent,
     signUp,
     signOut,
   }

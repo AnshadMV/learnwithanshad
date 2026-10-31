@@ -23,6 +23,7 @@ export function Navbar() {
     { label: 'Word Explorer', to: '/words' },
     { label: 'Games', to: '/games' },
     { label: 'Letter Groups 👥', to: '/games/groups' },
+    { label: 'Join Class 🎒', to: '/join', highlight: true },
   ]
 
   const studentLinks: NavLink[] = [

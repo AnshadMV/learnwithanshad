@@ -21,9 +21,31 @@ export function useStudentLiveStream() {
     !!navigator.mediaDevices &&
     typeof navigator.mediaDevices.getDisplayMedia === 'function'
 
+  // Determine if this client is functioning as a student on any device
+  const isStudentUser =
+    isStudent ||
+    profile?.role === 'student' ||
+    (typeof window !== 'undefined' && (
+      !!localStorage.getItem('arabic_auth_session') ||
+      !!new URLSearchParams(location.search).get('room') ||
+      !!localStorage.getItem('arabic_student_room')
+    ))
+
+  // Stable device-unique ID so separate student devices don't collide
+  const [deviceStudentId] = useState(() => {
+    if (typeof window === 'undefined') return 'device_student'
+    let id = localStorage.getItem('arabic_device_student_id')
+    if (!id) {
+      id = 'std_' + Math.random().toString(36).substring(2, 9)
+      localStorage.setItem('arabic_device_student_id', id)
+    }
+    return id
+  })
+
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const sharedChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const lastTouchTimeRef = useRef(0)
   const hiddenVideoRef = useRef<HTMLVideoElement | null>(null)
   const hiddenCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -31,8 +53,13 @@ export function useStudentLiveStream() {
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
   const isRemoteDescriptionSetRef = useRef(false)
 
-  const studentId = user?.id || (profile?.id ? profile.id : 'anon_student')
-  const studentName = profile?.display_name || user?.email?.split('@')[0] || 'Student'
+  const studentId = user?.id || (profile?.id ? profile.id : deviceStudentId)
+  const studentName =
+    profile?.display_name ||
+    user?.user_metadata?.display_name ||
+    user?.email?.split('@')[0] ||
+    (typeof window !== 'undefined' ? localStorage.getItem('arabic_student_name') : null) ||
+    'Student Explorer'
 
   // Helper to extract active game and letter from global store or URL
   const getActiveState = useCallback(() => {
@@ -114,6 +141,9 @@ export function useStudentLiveStream() {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
         ],
       })
       peerConnectionRef.current = pc
@@ -169,17 +199,38 @@ export function useStudentLiveStream() {
   }, [studentId])
 
   // ---------------------------------------------------------------------------
-  // 1. Supabase Realtime Channel
+  // 1. Supabase Realtime Channels (Private Student Channel + Classroom Channel)
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isStudent && !profile?.role?.includes('student')) return
+    if (!isStudentUser) return
 
     const channelName = `student_screen_${studentId}`
     const channel = supabase.channel(channelName, {
       config: { broadcast: { self: false } },
     })
-
     channelRef.current = channel
+
+    // Persistent classroom broadcast channel for teacher live monitor
+    const sharedChannel = supabase.channel('classroom_live_share', {
+      config: { broadcast: { self: false } },
+    })
+    sharedChannelRef.current = sharedChannel
+
+    sharedChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        const state = getActiveState()
+        sharedChannel.send({
+          type: 'broadcast',
+          event: 'student_joined',
+          payload: {
+            student_id: studentId,
+            display_name: studentName,
+            ...state,
+            timestamp: new Date().toISOString(),
+          },
+        }).catch(() => {})
+      }
+    })
 
     channel
       // Teacher opened the watcher modal -> immediately sync state & WebRTC offer!
@@ -261,14 +312,15 @@ export function useStudentLiveStream() {
 
     return () => {
       supabase.removeChannel(channel)
+      supabase.removeChannel(sharedChannel)
     }
-  }, [studentId, isStudent, profile?.role, getActiveState, sendFreshWebRtcOffer, captureAndSendFrame])
+  }, [studentId, isStudentUser, studentName, getActiveState, sendFreshWebRtcOffer, captureAndSendFrame, celebrate, celebrateBig, playSparkle, playStar])
 
   // ---------------------------------------------------------------------------
   // 2. Broadcast Route / Page Changes & Periodic State Heartbeat
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isStudent && profile?.role !== 'student') return
+    if (!isStudentUser) return
 
     const sendState = () => {
       const state = getActiveState()
@@ -286,26 +338,23 @@ export function useStudentLiveStream() {
         payload,
       }).catch(() => {})
 
-      try {
-        const sharedChannel = supabase.channel('classroom_live_share')
-        sharedChannel.send({
-          type: 'broadcast',
-          event: 'student_viewport',
-          payload,
-        }).catch(() => {})
-      } catch {}
+      sharedChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'student_viewport',
+        payload,
+      }).catch(() => {})
     }
 
     sendState()
     const interval = setInterval(sendState, 2000)
     return () => clearInterval(interval)
-  }, [location.pathname, location.search, studentId, studentName, isStudent, profile?.role, getActiveState])
+  }, [location.pathname, location.search, studentId, studentName, isStudentUser, getActiveState])
 
   // ---------------------------------------------------------------------------
   // 3. Pointer Movements & Touches
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!isStudent && profile?.role !== 'student') return
+    if (!isStudentUser) return
 
     const handlePointerMove = (e: MouseEvent | TouchEvent) => {
       const now = Date.now()
@@ -362,7 +411,7 @@ export function useStudentLiveStream() {
       window.removeEventListener('touchmove', handlePointerMove)
       window.removeEventListener('click', handleClick)
     }
-  }, [studentId, isStudent, profile?.role])
+  }, [studentId, isStudentUser])
 
   // ---------------------------------------------------------------------------
   // 4. Start Screen Share

@@ -17,7 +17,16 @@ export default function StudentLiveBanner() {
     setMobileNoticeOpen,
   } = useStudentLiveStream()
 
-  if (!isStudent && profile?.role !== 'student') {
+  const isStudentUser =
+    isStudent ||
+    profile?.role === 'student' ||
+    (typeof window !== 'undefined' && (
+      !!localStorage.getItem('arabic_auth_session') ||
+      !!new URLSearchParams(window.location.search).get('room') ||
+      !!localStorage.getItem('arabic_student_room')
+    ))
+
+  if (!isStudentUser) {
     return null
   }
 

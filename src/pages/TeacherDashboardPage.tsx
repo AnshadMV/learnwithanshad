@@ -268,23 +268,36 @@ export default function TeacherDashboardPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 pt-3 border-t border-gray-100">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => navigate('/teacher/students')}
-                    className="w-full text-xs"
+                <div className="flex flex-col gap-2 pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => navigate('/teacher/students')}
+                      className="w-full text-xs"
+                    >
+                      Manage Students
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => navigate(`/teacher/live?room=${c.invite_code}`)}
+                      className="w-full text-xs"
+                    >
+                      Live View 🔴
+                    </Button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const link = `${window.location.origin}/join?room=${c.invite_code}`
+                      navigator.clipboard.writeText(link)
+                      alert(`Copied Student Link for ${c.name}!\n\n${link}\n\nSend this hosted link to students on their mobile/tablet.`)
+                    }}
+                    className="w-full py-1.5 px-3 rounded-xl bg-sunny-100 hover:bg-sunny-200 text-sunny-800 text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors border border-sunny-300"
                   >
-                    Manage Students
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={() => navigate(`/teacher/live?room=${c.invite_code}`)}
-                    className="w-full text-xs"
-                  >
-                    Live View
-                  </Button>
+                    <span>🎒 Copy Student Link for Device</span>
+                  </button>
                 </div>
               </div>
             ))}

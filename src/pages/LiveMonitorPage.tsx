@@ -45,7 +45,8 @@ export default function LiveMonitorPage() {
   const [roomName, setRoomName] = useState<string>('Level 1')
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [shareModalOpen, setShareModalOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copiedStudent, setCopiedStudent] = useState(false)
+  const [copiedMonitor, setCopiedMonitor] = useState(false)
   const [recentBroadcastNotice, setRecentBroadcastNotice] = useState<string | null>(null)
   const [watchingStudent, setWatchingStudent] = useState<LiveStudent | null>(null)
 
@@ -197,6 +198,37 @@ export default function LiveMonitorPage() {
       .channel('classroom_live_share', {
         config: { broadcast: { self: true } },
       })
+      .on('broadcast', { event: 'student_joined' }, ({ payload }) => {
+        if (!payload || !payload.student_id) return
+
+        setLiveStudents(prev => {
+          const existingIdx = prev.findIndex(s => 
+            s.student_id === payload.student_id || 
+            (payload.display_name && s.display_name.trim().toLowerCase() === payload.display_name.trim().toLowerCase())
+          )
+          const item: LiveStudent = {
+            student_id: payload.student_id,
+            display_name: payload.display_name || 'Student Explorer',
+            current_game: payload.gameSlug || payload.game_slug || 'Alphabet Lesson',
+            current_letter: payload.letterId || payload.letter_id || 'alef',
+            score: payload.score || 0,
+            accuracy: payload.accuracy !== undefined ? payload.accuracy : 100,
+            questions_completed: 0,
+            status: 'playing',
+            last_heartbeat: new Date().toISOString(),
+          }
+
+          if (existingIdx !== -1) {
+            const next = [...prev]
+            next[existingIdx] = { ...next[existingIdx], ...item }
+            return next
+          }
+          return [item, ...prev]
+        })
+
+        setRecentBroadcastNotice(`🎒 ${payload.display_name || 'A student'} joined Room ${roomCode} on their device!`)
+        setTimeout(() => setRecentBroadcastNotice(null), 4000)
+      })
       .on('broadcast', { event: 'student_activity' }, ({ payload }) => {
         if (!payload) return
 
@@ -230,26 +262,41 @@ export default function LiveMonitorPage() {
         setTimeout(() => setRecentBroadcastNotice(null), 3000)
       })
       .on('broadcast', { event: 'student_viewport' }, ({ payload }) => {
-        if (!payload) return
+        if (!payload || !payload.student_id) return
 
         setLiveStudents(prev => {
           const existingIdx = prev.findIndex(s => 
             s.student_id === payload.student_id || 
-            s.display_name.trim().toLowerCase() === payload.display_name?.trim().toLowerCase()
+            (payload.display_name && s.display_name.trim().toLowerCase() === payload.display_name.trim().toLowerCase())
           )
           if (existingIdx !== -1) {
             const next = [...prev]
             next[existingIdx] = {
               ...next[existingIdx],
+              display_name: payload.display_name || next[existingIdx].display_name,
               current_game: payload.gameSlug || payload.game_slug || next[existingIdx].current_game,
               current_letter: payload.letterId || payload.letter_id || next[existingIdx].current_letter,
               score: payload.score !== undefined ? payload.score : next[existingIdx].score,
+              accuracy: payload.accuracy !== undefined ? payload.accuracy : next[existingIdx].accuracy,
               status: 'playing',
               last_heartbeat: new Date().toISOString(),
             }
             return next
           }
-          return prev
+
+          // Automatically add newly connected student from hosted link!
+          const newItem: LiveStudent = {
+            student_id: payload.student_id,
+            display_name: payload.display_name || 'Student Explorer',
+            current_game: payload.gameSlug || payload.game_slug || 'Alphabet Lesson',
+            current_letter: payload.letterId || payload.letter_id || 'alef',
+            score: payload.score || 0,
+            accuracy: payload.accuracy !== undefined ? payload.accuracy : 100,
+            questions_completed: 0,
+            status: 'playing',
+            last_heartbeat: new Date().toISOString(),
+          }
+          return [newItem, ...prev]
         })
       })
       .subscribe()
@@ -266,13 +313,20 @@ export default function LiveMonitorPage() {
       supabase.removeChannel(liveChannel)
       supabase.removeChannel(dbChannel)
     }
-  }, [])
+  }, [roomCode])
 
-  const handleCopyShareLink = () => {
+  const handleCopyStudentLink = () => {
+    const studentUrl = `${window.location.origin}/join?room=${roomCode}`
+    navigator.clipboard.writeText(studentUrl)
+    setCopiedStudent(true)
+    setTimeout(() => setCopiedStudent(false), 2500)
+  }
+
+  const handleCopyMonitorLink = () => {
     const shareUrl = `${window.location.origin}/teacher/live?room=${roomCode}`
     navigator.clipboard.writeText(shareUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2500)
+    setCopiedMonitor(true)
+    setTimeout(() => setCopiedMonitor(false), 2500)
   }
 
   return (
@@ -362,13 +416,33 @@ export default function LiveMonitorPage() {
               Waiting for students to start learning. When learners launch letters or games, their live scores, accuracy, and activities will stream here instantly!
             </p>
           </div>
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Button size="sm" variant="secondary" onClick={handleCopyShareLink}>
-              <Copy className="w-4 h-4 mr-1.5" />
-              <span>{copied ? 'Copied Room Link!' : 'Copy Room Link'}</span>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <Button
+              size="sm"
+              variant={copiedStudent ? 'success' : 'primary'}
+              onClick={handleCopyStudentLink}
+              className="flex items-center gap-1.5 shadow"
+            >
+              {copiedStudent ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              <span>{copiedStudent ? 'Copied Student Link!' : 'Copy Student Link for Another Device 🎒'}</span>
             </Button>
-            <Button size="sm" variant="primary" onClick={() => navigate('/alphabet')}>
-              <span>Launch Alphabet Lesson</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => window.open(`/join?room=${roomCode}`, '_blank')}
+              className="flex items-center gap-1.5"
+            >
+              <Radio className="w-4 h-4 text-emerald-500" />
+              <span>Test Student View</span>
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setShareModalOpen(true)}
+              className="flex items-center gap-1.5"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>All Invite Links</span>
             </Button>
           </div>
         </div>
@@ -497,43 +571,121 @@ export default function LiveMonitorPage() {
       >
         <div className="space-y-5">
           <p className="text-gray-500 text-sm">
-            Share this live broadcast session with assistants, classroom displays, or parents to watch student learning progress in real-time.
+            Connect students on another device (phone, tablet, or laptop) so their screen, answers, and game scores sync to your Live Monitor in real time.
           </p>
 
-          <div className="p-4 rounded-2xl bg-sky border border-blue-100 space-y-2">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block">
-              Classroom Live Room Code
-            </span>
-            <div className="font-mono text-2xl font-black text-brand-blue tracking-wider">
-              {roomCode}
+          <div className="p-4 rounded-2xl bg-sky border border-blue-100 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">
+                Classroom Room Code
+              </span>
+              <div className="font-mono text-2xl font-black text-brand-blue tracking-wider">
+                {roomCode}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                navigator.clipboard.writeText(roomCode)
+                setRecentBroadcastNotice(`Copied room code: ${roomCode}`)
+                setTimeout(() => setRecentBroadcastNotice(null), 2500)
+              }}
+              className="text-xs"
+            >
+              <Copy className="w-3.5 h-3.5 mr-1" />
+              <span>Copy Code</span>
+            </Button>
+          </div>
+
+          {/* 1. Student Hosted Link (Primary) */}
+          <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-black uppercase tracking-wider text-emerald-800">
+                📱 Student Link (Send to Student's Device)
+              </label>
+              <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full">
+                For Students
+              </span>
+            </div>
+            <p className="text-xs text-emerald-700">
+              When a student opens this link on their mobile, tablet, or PC, they join your live room and their screen mirrors here!
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/join?room=${roomCode}`}
+                className="w-full px-3.5 py-2 rounded-xl border border-emerald-300 bg-white text-xs font-mono font-bold text-emerald-900 focus:outline-none select-all"
+              />
+              <Button
+                variant={copiedStudent ? 'success' : 'primary'}
+                size="sm"
+                onClick={handleCopyStudentLink}
+                className="shrink-0 flex items-center gap-1 font-bold"
+              >
+                {copiedStudent ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedStudent ? 'Copied!' : 'Copy Link'}</span>
+              </Button>
             </div>
           </div>
 
+          {/* 2. Direct Alphabet Game Student Link */}
+          <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 space-y-1.5">
+            <label className="block text-xs font-bold text-blue-900">
+              🎮 Direct Alphabet Lesson Link
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={`${window.location.origin}/alphabet?room=${roomCode}`}
+                className="w-full px-3 py-1.5 rounded-xl border border-blue-200 bg-white text-xs font-mono text-gray-700 focus:outline-none"
+              />
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/alphabet?room=${roomCode}`)
+                  setRecentBroadcastNotice('Copied Alphabet direct link!')
+                  setTimeout(() => setRecentBroadcastNotice(null), 2500)
+                }}
+                className="shrink-0 text-xs py-1.5 px-3"
+              >
+                <span>Copy</span>
+              </Button>
+            </div>
+          </div>
+
+          {/* 3. Teacher Spectator Link */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
-              Live Monitor Link
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+              🖥️ Teacher Spectator / Display Link
             </label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
                 readOnly
                 value={`${window.location.origin}/teacher/live?room=${roomCode}`}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-xs font-mono text-gray-600 focus:outline-none"
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-xs font-mono text-gray-600 focus:outline-none"
               />
               <Button
-                variant={copied ? 'success' : 'primary'}
+                variant={copiedMonitor ? 'success' : 'secondary'}
                 size="sm"
-                onClick={handleCopyShareLink}
-                className="shrink-0 flex items-center gap-1"
+                onClick={handleCopyMonitorLink}
+                className="shrink-0 flex items-center gap-1 text-xs"
               >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                <span>{copied ? 'Copied!' : 'Copy'}</span>
+                {copiedMonitor ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedMonitor ? 'Copied!' : 'Copy'}</span>
               </Button>
             </div>
+            <span className="text-[10px] text-gray-400 block mt-1">
+              For classroom projectors, smart boards, or assistant teachers.
+            </span>
           </div>
 
-          <div className="pt-2 text-xs text-gray-400">
-            💡 Students playing on tablets automatically broadcast their progress to this room without any manual setup.
+          <div className="pt-2 text-xs text-gray-500 bg-amber-50 p-3 rounded-xl border border-amber-200/60">
+            💡 <strong>How multi-device sharing works:</strong> Keep this Live Monitor open on your computer. Have your student open the <strong>Student Link</strong> on their phone, tablet, or Chromebook. You will see their live cursor, answers, and screen in real-time!
           </div>
         </div>
       </Modal>

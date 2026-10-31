@@ -165,18 +165,25 @@ export default function HomePage() {
           </div>
         </motion.div>
 
-        {/* CTA button */}
+        {/* CTA buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.5 }}
+          className="flex flex-wrap items-center justify-center gap-3"
         >
           <Link
             to="/alphabet"
-            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold text-xl px-10 py-4 rounded-2xl shadow-lg shadow-blue-300 transition-all duration-200"
+            className="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold text-lg sm:text-xl px-8 py-3.5 rounded-2xl shadow-lg shadow-blue-300 transition-all duration-200"
           >
-            <Zap className="w-6 h-6" />
+            <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
             Start Learning!
+          </Link>
+          <Link
+            to="/join"
+            className="inline-flex items-center gap-2 bg-sunny-400 hover:bg-sunny-500 active:scale-95 text-slate-900 font-extrabold text-lg sm:text-xl px-8 py-3.5 rounded-2xl shadow-lg shadow-amber-300 transition-all duration-200 border-2 border-sunny-500"
+          >
+            <span>🎒 Join Live Class</span>
           </Link>
         </motion.div>
       </section>

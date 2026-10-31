@@ -12,6 +12,7 @@ const GamesLibraryPage = lazy(() => import('@/pages/GamesLibraryPage'))
 const LetterGroupArenaPage = lazy(() => import('@/pages/LetterGroupArenaPage'))
 const LoginPage = lazy(() => import('@/pages/LoginPage'))
 const StudentLoginPage = lazy(() => import('@/pages/StudentLoginPage'))
+const StudentJoinPage = lazy(() => import('@/pages/StudentJoinPage'))
 const TeacherLoginPage = lazy(() => import('@/pages/TeacherLoginPage'))
 const StudentDashboardPage = lazy(() => import('@/pages/StudentDashboardPage'))
 const TeacherDashboardPage = lazy(() => import('@/pages/TeacherDashboardPage'))
@@ -115,7 +116,9 @@ function AppRoutes() {
         <Route path="/games" element={<Layout><GamesLibraryPage /></Layout>} />
         <Route path="/games/groups" element={<Layout><LetterGroupArenaPage /></Layout>} />
 
-        {/* Auth */}
+        {/* Auth & Student Join */}
+        <Route path="/join" element={<StudentJoinPage />} />
+        <Route path="/student/join" element={<StudentJoinPage />} />
         <Route path="/login" element={<Layout><LoginPage /></Layout>} />
         <Route path="/student/login" element={<StudentLoginPage />} />
         <Route path="/teacher/login" element={<TeacherLoginPage />} />

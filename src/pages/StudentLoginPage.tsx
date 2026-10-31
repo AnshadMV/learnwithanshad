@@ -128,8 +128,14 @@ export default function StudentLoginPage() {
           </Button>
         </form>
 
-        {/* Instant 1-Click Quick Login */}
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        {/* Instant 1-Click Quick Login & Room Join */}
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+          <Link
+            to="/join"
+            className="w-full py-2.5 px-3 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 transition-colors shadow-sm"
+          >
+            <span>🎒 Joining with a Room Code? Quick Join</span>
+          </Link>
           <Button
             type="button"
             variant="secondary"
