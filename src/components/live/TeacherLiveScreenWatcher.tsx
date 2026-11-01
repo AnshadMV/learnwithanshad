@@ -1,23 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { 
   X, 
   Tv, 
   Maximize2, 
   Minimize2, 
-  Sparkles, 
   Volume2, 
   Radio, 
   MousePointer, 
-  CheckCircle2, 
   RotateCcw,
-  Zap,
-  Play
+  Sparkles,
+  Camera,
+  Layers,
+  Smartphone,
+  Monitor
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useSound } from '@/hooks/useSound'
 import Button from '@/components/ui/Button'
-import ArabicText from '@/components/arabic/ArabicText'
 
 interface TeacherLiveScreenWatcherProps {
   student: {
@@ -49,6 +49,9 @@ interface ViewportState {
   status: string
   lastUpdated: string
   isMobile?: boolean
+  isTablet?: boolean
+  isDesktop?: boolean
+  deviceType?: 'mobile' | 'tablet' | 'desktop'
 }
 
 export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLiveScreenWatcherProps) {
@@ -60,10 +63,10 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
   const [recentClicks, setRecentClicks] = useState<Array<{ id: number; x: number; y: number }>>([])
   
   const [viewportState, setViewportState] = useState<ViewportState>({
-    pathname: student.current_game ? '/games/' + student.current_game : '/alphabet',
-    search: '?letter=' + (student.current_letter || 'alef'),
-    gameSlug: student.current_game && student.current_game !== 'idle' ? student.current_game : 'letter-safari',
-    letterId: student.current_letter && student.current_letter !== '—' ? student.current_letter : 'ta',
+    pathname: student.current_game && student.current_game !== 'idle' ? '/games/' + student.current_game : '/alphabet',
+    search: '?letter=' + (student.current_letter && student.current_letter !== '—' ? student.current_letter : 'alef'),
+    gameSlug: student.current_game && student.current_game !== 'idle' ? student.current_game : 'Alphabet Learning',
+    letterId: student.current_letter && student.current_letter !== '—' ? student.current_letter : '',
     score: student.score || 0,
     accuracy: student.accuracy || 100,
     status: student.status || 'playing',
@@ -136,14 +139,22 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
       .on('broadcast', { event: 'screen_status' }, ({ payload }) => {
         if (payload?.active === false) {
           setHasVideoStream(false)
-          setLiveSnapshot(null)
           if (videoRef.current) videoRef.current.srcObject = null
-          setActivityFeed(prev => [`Student screen stream paused.`, ...prev.slice(0, 8)])
+          setActivityFeed(prev => [`Student ended direct screen stream. Switching to auto mirror...`, ...prev.slice(0, 8)])
         }
       })
       .on('broadcast', { event: 'screen_frame' }, ({ payload }) => {
         if (payload?.image) {
           setLiveSnapshot(payload.image)
+          if (payload.deviceType) {
+            setViewportState(prev => ({
+              ...prev,
+              deviceType: payload.deviceType,
+              isTablet: payload.deviceType === 'tablet',
+              isMobile: payload.deviceType === 'mobile',
+              isDesktop: payload.deviceType === 'desktop',
+            }))
+          }
         }
       })
       .on('broadcast', { event: 'student_viewport' }, ({ payload }) => {
@@ -158,6 +169,9 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
           accuracy: payload.accuracy !== undefined ? payload.accuracy : prev.accuracy,
           status: payload.status || prev.status,
           isMobile: payload.isMobile !== undefined ? payload.isMobile : prev.isMobile,
+          isTablet: payload.isTablet !== undefined ? payload.isTablet : prev.isTablet,
+          isDesktop: payload.isDesktop !== undefined ? payload.isDesktop : prev.isDesktop,
+          deviceType: payload.deviceType || (payload.isTablet ? 'tablet' : payload.isMobile ? 'mobile' : prev.deviceType || 'desktop'),
           lastUpdated: new Date().toLocaleTimeString(),
         }))
         const gameDisplay = (payload.gameSlug || payload.game_slug || 'Letter Game').replace(/-/g, ' ')
@@ -236,7 +250,7 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
       pc.close()
       supabase.removeChannel(channel)
     }
-  }, [student.student_id])
+  }, [student.student_id, playCoin])
 
   // ---------------------------------------------------------------------------
   // Teacher Actions
@@ -247,8 +261,16 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
       event: 'request_screen_share',
       payload: { requestedBy: 'Ustadh Anshad' },
     }).catch(() => {})
-
     setActivityFeed(prev => [`Requested live HD screen stream from ${student.display_name}...`, ...prev.slice(0, 8)])
+  }
+
+  const requestSnapshot = () => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'request_snapshot',
+      payload: { requestedBy: 'Ustadh Anshad' },
+    }).catch(() => {})
+    setActivityFeed(prev => [`Requested instant screen snapshot from ${student.display_name}...`, ...prev.slice(0, 8)])
   }
 
   const sendReaction = (emoji: string) => {
@@ -286,8 +308,6 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
     }
   }
 
-  const activeLetterFormatted = viewportState.letterId.toUpperCase()
-
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-5 overflow-y-auto">
       <div
@@ -315,25 +335,39 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                   Live Mirror
                 </span>
                 {hasVideoStream ? (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     60fps HD Video
                   </span>
                 ) : liveSnapshot ? (
-                  <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold border border-teal-500/30">
-                    Live Frame Stream
+                  <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold border border-teal-500/30 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                    {viewportState.deviceType === 'tablet'
+                      ? '📱 Live Tablet Screen'
+                      : viewportState.deviceType === 'mobile'
+                      ? '📱 Live Phone Screen'
+                      : '🗂️ Live Tab Stream'}
                   </span>
-                ) : viewportState.isMobile ? (
+                ) : viewportState.deviceType === 'tablet' || viewportState.isTablet ? (
+                  <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold border border-teal-500/30 flex items-center gap-1">
+                    📱 Tablet Connecting...
+                  </span>
+                ) : viewportState.deviceType === 'mobile' || viewportState.isMobile ? (
                   <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1">
-                    📱 Mobile Live Mirror
+                    📱 Mobile Connecting...
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30">
-                    Realtime Viewport
+                    Connecting Stream...
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-400">
-                Active Game: <strong className="text-white capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</strong> • Letter: <strong className="text-sunny-300 font-arabic">{viewportState.letterId}</strong> • Score: <strong className="text-emerald-400">{viewportState.score} pts</strong>
+                Active Game: <strong className="text-white capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</strong>
+                {viewportState.letterId && (
+                  <> • Letter: <strong className="text-sunny-300 font-arabic">{viewportState.letterId}</strong></>
+                )}
+                {' '}• Score: <strong className="text-emerald-400">{viewportState.score} pts</strong>
               </p>
             </div>
           </div>
@@ -374,7 +408,7 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                 </div>
               </div>
             ) : liveSnapshot ? (
-              // 2. High-Fidelity Frame Snapshot Stream
+              // 2. High-Fidelity Frame Snapshot Stream (Tab or Tablet/Mobile Screen)
               <div className="w-full h-full flex items-center justify-center relative rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-inner">
                 <img
                   src={liveSnapshot}
@@ -383,7 +417,11 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                 />
                 <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-teal-300 border border-white/10 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-                  Live Visual Screen Stream
+                  {viewportState.deviceType === 'tablet'
+                    ? '📱 Live Tablet Screen Stream'
+                    : viewportState.deviceType === 'mobile'
+                    ? '📱 Live Mobile Screen Stream'
+                    : '🗂️ Live Visual Screen Stream'}
                 </div>
 
                 {/* Laser Cursor Overlay on Snapshot */}
@@ -402,72 +440,6 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                     {student.display_name}
                   </span>
                 </motion.div>
-              </div>
-            ) : (
-              // 3. Interactive Mirrored Viewport with Live Cursor & Click Ripples
-              <div className="w-full h-full max-w-3xl aspect-[16/10] bg-gradient-to-b from-[#EAF5FF] via-blue-50 to-indigo-100 rounded-2xl border-4 border-slate-700 shadow-2xl relative overflow-hidden flex flex-col justify-between text-slate-800 select-none">
-                {/* Mirrored Header Bar */}
-                <div className="bg-white/95 backdrop-blur-md px-4 py-2 border-b border-blue-200 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="font-bold text-brand-blue font-mono">{viewportState.pathname}</span>
-                  </div>
-                  <div className="font-bold text-gray-500 text-[11px] flex items-center gap-2">
-                    <span>{student.display_name}'s Device</span>
-                    <span>•</span>
-                    <span className="px-2 py-0.5 rounded bg-blue-100 font-bold text-brand-blue">
-                      SCORE: {viewportState.score}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Mirrored Activity Screen (Matches Student Game Interface!) */}
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-                  <div className="text-xs font-black uppercase tracking-wider text-gray-400">
-                    FIND THIS LETTER:
-                  </div>
-
-                  <div className="w-24 h-24 rounded-3xl bg-blue-600 shadow-xl border-4 border-white flex items-center justify-center text-5xl font-arabic font-black text-white animate-bounce-gentle">
-                    {viewportState.letterId || 'ت'}
-                  </div>
-
-                  <div className="space-y-1">
-                    <h3 className="text-2xl font-black text-gray-800 font-display capitalize">
-                      {viewportState.gameSlug.replace(/-/g, ' ')}
-                    </h3>
-                    <p className="text-xs text-gray-500 font-semibold">
-                      Student is actively playing on their device
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2 max-w-md w-full pt-2">
-                    {['د', 'س', 'ت', 'ل'].map((ch, idx) => (
-                      <div
-                        key={idx}
-                        className="py-3 px-2 rounded-2xl bg-white border-2 border-blue-100 shadow-sm font-arabic font-bold text-xl text-brand-blue"
-                      >
-                        {ch}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Live Laser / Touch Pointer Tracker */}
-                <motion.div
-                  className="absolute pointer-events-none z-30 flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
-                  animate={{
-                    left: `${cursorPos.xPct}%`,
-                    top: `${cursorPos.yPct}%`,
-                  }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                >
-                  <div className="w-6 h-6 rounded-full bg-rose-500/85 border-2 border-white shadow-lg flex items-center justify-center text-white">
-                    <MousePointer className="w-3.5 h-3.5 fill-white" />
-                  </div>
-                  <span className="px-1.5 py-0.5 rounded bg-black/75 text-[10px] font-bold text-white shadow whitespace-nowrap">
-                    {student.display_name}
-                  </span>
-                </motion.div>
 
                 {/* Click / Tap Ripples */}
                 {recentClicks.map(c => (
@@ -480,9 +452,72 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                     style={{ left: `${c.x}%`, top: `${c.y}%` }}
                   />
                 ))}
+              </div>
+            ) : (
+              // 3. Dynamic Connecting / Sync Viewport
+              <div className="w-full h-full max-w-3xl aspect-[16/10] bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 rounded-2xl border-4 border-slate-700 shadow-2xl relative overflow-hidden flex flex-col justify-between text-white select-none">
+                {/* Mirrored Header Bar */}
+                <div className="bg-slate-950/90 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="font-mono text-slate-300 font-bold">{viewportState.pathname}</span>
+                  </div>
+                  <div className="text-slate-400 text-[11px] flex items-center gap-2">
+                    <span>{student.display_name}'s {viewportState.deviceType || 'Device'}</span>
+                    <span>•</span>
+                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">
+                      SCORE: {viewportState.score}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Center Loading & Sync Notice */}
+                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-3xl bg-brand-blue/20 border-2 border-blue-400/40 flex items-center justify-center text-4xl shadow-lg">
+                      {viewportState.deviceType === 'tablet' ? '📱' : viewportState.deviceType === 'mobile' ? '📱' : '💻'}
+                    </div>
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-4 w-4 bg-teal-500"></span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-xl font-black text-white">
+                      Connecting to {student.display_name}'s Screen
+                    </h3>
+                    <p className="text-xs text-slate-400 max-w-sm">
+                      {viewportState.deviceType === 'tablet' || viewportState.deviceType === 'mobile'
+                        ? 'Student is playing on a touch device. Live screen snapshots are syncing...'
+                        : 'Waiting for student screen stream or active game feed...'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={requestSnapshot}
+                      className="text-xs bg-teal-600 hover:bg-teal-500 border-0 flex items-center gap-1.5 shadow"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Request Screen Snapshot 📸</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={requestScreenShare}
+                      className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5"
+                    >
+                      <Tv className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Request Full Screen Stream 📺</span>
+                    </Button>
+                  </div>
+                </div>
 
                 {/* Mirrored Footer */}
-                <div className="bg-white/90 px-4 py-1.5 border-t border-blue-200 text-[10px] text-gray-400 flex items-center justify-between font-mono">
+                <div className="bg-slate-950/80 px-4 py-2 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between font-mono">
                   <span>Pointer: ({Math.round(cursorPos.xPct)}%, {Math.round(cursorPos.yPct)}%)</span>
                   <span>Sync: Live Interaction Broadcast Active</span>
                 </div>
@@ -492,23 +527,26 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
             {/* Bottom Controls Bar */}
             <div className="w-full mt-3 flex items-center justify-between gap-3 px-2">
               <div className="flex items-center gap-2">
-                {viewportState.isMobile ? (
-                  <span className="text-xs text-amber-300 bg-amber-950/60 border border-amber-500/30 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-bold">
-                    <span>📱 Mobile Device</span>
-                    <span>•</span>
-                    <span>Live Game & Touches Synced</span>
-                  </span>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={requestScreenShare}
-                    className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Tv className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Request 1080p Screen Stream</span>
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={requestScreenShare}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5 shadow-sm"
+                >
+                  <Tv className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Request Screen Stream</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={requestSnapshot}
+                  className="text-xs bg-slate-800 hover:bg-slate-700 text-teal-300 border-slate-700 flex items-center gap-1.5 shadow-sm"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Refresh Snapshot 📸</span>
+                </Button>
+
                 <Button
                   size="sm"
                   variant="primary"
@@ -571,6 +609,10 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
               <span className="font-bold text-slate-400 block text-[10px] uppercase">
                 Active Session Summary
               </span>
+              <div className="flex justify-between text-slate-300 text-xs">
+                <span>Device:</span>
+                <span className="font-bold text-slate-200 capitalize">{viewportState.deviceType || 'Device'}</span>
+              </div>
               <div className="flex justify-between text-slate-300 text-xs">
                 <span>Current Game:</span>
                 <span className="font-bold text-brand-blue capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</span>

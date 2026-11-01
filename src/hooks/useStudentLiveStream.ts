@@ -1,9 +1,27 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
+import html2canvas from 'html2canvas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useSound } from '@/hooks/useSound'
 import { useConfetti } from '@/hooks/useConfetti'
+
+export function getDeviceInfo() {
+  if (typeof window === 'undefined') {
+    return { isMobile: false, isTablet: false, isDesktop: true, isTouch: false, deviceType: 'desktop' as const }
+  }
+  const ua = navigator.userAgent || ''
+  const isTouch = 'ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0)
+  const isTablet =
+    /(ipad|tablet|(android(?!.*mobile))|(windows(?!.*phone)(.*touch))|kindle|playbook|silk)/i.test(ua) ||
+    (Boolean(isTouch) && window.innerWidth >= 600 && window.innerWidth <= 1024)
+  const isMobile =
+    !isTablet &&
+    (/mobile|iphone|ipod|android|blackberry|opera mini|iemobile|wpdesktop/i.test(ua) ||
+      (Boolean(isTouch) && window.innerWidth < 600))
+  const deviceType = isTablet ? ('tablet' as const) : isMobile ? ('mobile' as const) : ('desktop' as const)
+  return { isMobile, isTablet, isDesktop: !isMobile && !isTablet, isTouch: Boolean(isTouch), deviceType }
+}
 
 export function useStudentLiveStream() {
   const { user, profile, isStudent } = useAuth()
@@ -15,6 +33,7 @@ export function useStudentLiveStream() {
   const [incomingReaction, setIncomingReaction] = useState<string | null>(null)
   const [screenShareRequested, setScreenShareRequested] = useState(false)
   const [mobileNoticeOpen, setMobileNoticeOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
 
   const isDisplayMediaSupported =
     typeof navigator !== 'undefined' &&
@@ -52,6 +71,7 @@ export function useStudentLiveStream() {
   const frameIntervalRef = useRef<any>(null)
   const iceCandidateQueueRef = useRef<RTCIceCandidateInit[]>([])
   const isRemoteDescriptionSetRef = useRef(false)
+  const isCapturingDomRef = useRef(false)
 
   const studentId = user?.id || (profile?.id ? profile.id : deviceStudentId)
   const studentName =
@@ -67,6 +87,7 @@ export function useStudentLiveStream() {
     const searchParams = new URLSearchParams(location.search)
     const letterFromUrl = searchParams.get('letter')
     const pathname = location.pathname
+    const dev = getDeviceInfo()
 
     let detectedSlug = globalState.gameSlug
     if (!detectedSlug && pathname.startsWith('/games/')) {
@@ -81,13 +102,16 @@ export function useStudentLiveStream() {
       score: globalState.score || 0,
       accuracy: globalState.accuracy || 100,
       status: globalState.status || (pathname.startsWith('/games') ? 'playing' : 'idle'),
-      isMobile: !isDisplayMediaSupported,
-      deviceType: isDisplayMediaSupported ? 'desktop' : 'mobile',
+      isMobile: dev.isMobile,
+      isTablet: dev.isTablet,
+      isDesktop: dev.isDesktop,
+      deviceType: dev.deviceType,
+      isDisplayMediaSupported,
     }
   }, [location.pathname, location.search, isDisplayMediaSupported])
 
   // ---------------------------------------------------------------------------
-  // Capture & Broadcast Video Frame Snapshot (Image Stream)
+  // Capture & Broadcast Video Frame Snapshot (Image Stream from WebRTC stream)
   // ---------------------------------------------------------------------------
   const captureAndSendFrame = useCallback(() => {
     if (!streamRef.current || !hiddenVideoRef.current || !hiddenCanvasRef.current) return
@@ -115,11 +139,73 @@ export function useStudentLiveStream() {
             student_id: studentId,
             image: dataUrl,
             timestamp: Date.now(),
+            source: 'webrtc_video',
+            deviceType: getDeviceInfo().deviceType,
           },
         }).catch(() => {})
       }
     } catch {}
   }, [studentId])
+
+  // ---------------------------------------------------------------------------
+  // Capture & Broadcast DOM Snapshot (for Tablets, Mobile & Tab Auto-Mirroring)
+  // ---------------------------------------------------------------------------
+  const captureAndSendDomSnapshot = useCallback(async () => {
+    // If WebRTC live stream is active, the video frame loop handles updates
+    if (streamRef.current) {
+      captureAndSendFrame()
+      return
+    }
+    if (typeof window === 'undefined' || isCapturingDomRef.current) return
+    if (document.hidden) return
+
+    isCapturingDomRef.current = true
+    try {
+      const target = document.getElementById('root') || document.body
+      if (!target) return
+
+      const scale = Math.min(1, 640 / Math.max(window.innerWidth, 1))
+
+      const canvas = await html2canvas(target, {
+        scale,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#EAF5FF',
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+        x: window.scrollX,
+        y: window.scrollY,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        ignoreElements: (element) => {
+          return (
+            element.classList?.contains('student-live-ignore') ||
+            element.id === 'arabic_screen_capture_v'
+          )
+        },
+      })
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.52)
+      if (dataUrl && dataUrl.length > 500) {
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'screen_frame',
+          payload: {
+            student_id: studentId,
+            image: dataUrl,
+            timestamp: Date.now(),
+            isDomSnapshot: true,
+            deviceType: getDeviceInfo().deviceType,
+          },
+        }).catch(() => {})
+      }
+    } catch (e) {
+      // Silently ignore snapshot errors
+    } finally {
+      isCapturingDomRef.current = false
+    }
+  }, [studentId, captureAndSendFrame])
 
   // ---------------------------------------------------------------------------
   // WebRTC Offer Generator (Called whenever teacher connects)
@@ -233,7 +319,7 @@ export function useStudentLiveStream() {
     })
 
     channel
-      // Teacher opened the watcher modal -> immediately sync state & WebRTC offer!
+      // Teacher opened the watcher modal -> immediately sync state & WebRTC offer / DOM snapshot!
       .on('broadcast', { event: 'teacher_joined' }, () => {
         const state = getActiveState()
         channel.send({
@@ -251,6 +337,18 @@ export function useStudentLiveStream() {
         if (streamRef.current) {
           sendFreshWebRtcOffer()
           captureAndSendFrame()
+        } else {
+          // Immediately send fresh DOM snapshot so teacher sees the real screen!
+          setTimeout(captureAndSendDomSnapshot, 150)
+        }
+      })
+
+      // Teacher requests an instant screen snapshot
+      .on('broadcast', { event: 'request_snapshot' }, () => {
+        if (streamRef.current) {
+          captureAndSendFrame()
+        } else {
+          captureAndSendDomSnapshot()
         }
       })
 
@@ -262,7 +360,9 @@ export function useStudentLiveStream() {
         } else {
           setScreenShareRequested(true)
           playStar()
-          setTimeout(() => setScreenShareRequested(false), 12000)
+          // Send an immediate snapshot while student responds
+          captureAndSendDomSnapshot()
+          setTimeout(() => setScreenShareRequested(false), 14000)
         }
       })
 
@@ -288,7 +388,6 @@ export function useStudentLiveStream() {
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp))
             isRemoteDescriptionSetRef.current = true
-            // Process queued ICE candidates
             while (iceCandidateQueueRef.current.length > 0) {
               const cand = iceCandidateQueueRef.current.shift()
               if (cand) await pc.addIceCandidate(new RTCIceCandidate(cand)).catch(() => {})
@@ -314,10 +413,22 @@ export function useStudentLiveStream() {
       supabase.removeChannel(channel)
       supabase.removeChannel(sharedChannel)
     }
-  }, [studentId, isStudentUser, studentName, getActiveState, sendFreshWebRtcOffer, captureAndSendFrame, celebrate, celebrateBig, playSparkle, playStar])
+  }, [
+    studentId,
+    isStudentUser,
+    studentName,
+    getActiveState,
+    sendFreshWebRtcOffer,
+    captureAndSendFrame,
+    captureAndSendDomSnapshot,
+    celebrate,
+    celebrateBig,
+    playSparkle,
+    playStar,
+  ])
 
   // ---------------------------------------------------------------------------
-  // 2. Broadcast Route / Page Changes & Periodic State Heartbeat
+  // 2. Broadcast Route / Page Changes & Periodic State Heartbeat & DOM snapshots
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isStudentUser) return
@@ -346,9 +457,31 @@ export function useStudentLiveStream() {
     }
 
     sendState()
-    const interval = setInterval(sendState, 2000)
-    return () => clearInterval(interval)
-  }, [location.pathname, location.search, studentId, studentName, isStudentUser, getActiveState])
+    const stateInterval = setInterval(sendState, 2000)
+
+    // Periodic automatic DOM snapshot sync for mobile, tablet, and non-screensharing students
+    const domSnapshotInterval = setInterval(() => {
+      if (!streamRef.current && isStudentUser) {
+        captureAndSendDomSnapshot()
+      }
+    }, 2200)
+
+    return () => {
+      clearInterval(stateInterval)
+      clearInterval(domSnapshotInterval)
+    }
+  }, [location.pathname, location.search, studentId, studentName, isStudentUser, getActiveState, captureAndSendDomSnapshot])
+
+  // Trigger immediate DOM snapshot on route change
+  useEffect(() => {
+    if (!isStudentUser) return
+    const timer = setTimeout(() => {
+      if (!streamRef.current) {
+        captureAndSendDomSnapshot()
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [location.pathname, location.search, isStudentUser, captureAndSendDomSnapshot])
 
   // ---------------------------------------------------------------------------
   // 3. Pointer Movements & Touches
@@ -400,6 +533,13 @@ export function useStudentLiveStream() {
           timestamp: Date.now(),
         },
       }).catch(() => {})
+
+      // Debounced DOM capture shortly after click to capture score / state changes
+      setTimeout(() => {
+        if (!streamRef.current) {
+          captureAndSendDomSnapshot()
+        }
+      }, 500)
     }
 
     window.addEventListener('mousemove', handlePointerMove, { passive: true })
@@ -411,31 +551,59 @@ export function useStudentLiveStream() {
       window.removeEventListener('touchmove', handlePointerMove)
       window.removeEventListener('click', handleClick)
     }
-  }, [studentId, isStudentUser])
+  }, [studentId, isStudentUser, captureAndSendDomSnapshot])
 
   // ---------------------------------------------------------------------------
-  // 4. Start Screen Share
+  // 4. Start Screen Share (Supports Existing Tab, Window, Full Screen & Mobile/Tablet)
   // ---------------------------------------------------------------------------
-  const startScreenShare = useCallback(async () => {
+  const startScreenShare = useCallback(async (mode: 'tab' | 'window' | 'screen' = 'tab') => {
     try {
       if (!isDisplayMediaSupported) {
+        // Fallback for devices without getDisplayMedia (e.g. iPhone Safari)
+        captureAndSendDomSnapshot()
         setMobileNoticeOpen(true)
         setScreenShareRequested(false)
         return
       }
 
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      // Display media constraints configured specifically to enable the existing tab as well as windows
+      const displayMediaOptions: any = {
         video: {
+          displaySurface: mode === 'window' ? 'window' : 'browser',
           frameRate: { ideal: 15, max: 30 },
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
         },
         audio: false,
-      })
+        preferCurrentTab: mode !== 'window',
+        selfBrowserSurface: 'include',
+        surfaceSwitching: 'include',
+        systemAudio: 'exclude',
+      }
+
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions)
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
+          // Student cancelled screen picker
+          return
+        }
+        // Fallback to basic getDisplayMedia if constraints were rejected by browser
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: false,
+        })
+      }
 
       streamRef.current = stream
       setIsScreenSharing(true)
       setScreenShareRequested(false)
+      setShareModalOpen(false)
+
+      stream.getVideoTracks().forEach(track => {
+        track.onended = () => stopScreenShare()
+      })
 
       // Ensure offscreen video element is attached to DOM and playing for frame extraction
       let v = document.getElementById('arabic_screen_capture_v') as HTMLVideoElement
@@ -478,7 +646,7 @@ export function useStudentLiveStream() {
       console.warn('Screen share canceled or failed:', err)
       setIsScreenSharing(false)
     }
-  }, [sendFreshWebRtcOffer, captureAndSendFrame])
+  }, [isDisplayMediaSupported, captureAndSendDomSnapshot, captureAndSendFrame, sendFreshWebRtcOffer])
 
   const stopScreenShare = useCallback(() => {
     if (frameIntervalRef.current) {
@@ -506,7 +674,10 @@ export function useStudentLiveStream() {
         active: false,
       },
     }).catch(() => {})
-  }, [studentId])
+
+    // Resume DOM snapshot stream immediately after screen share stops
+    setTimeout(captureAndSendDomSnapshot, 300)
+  }, [studentId, captureAndSendDomSnapshot])
 
   return {
     isScreenSharing,
@@ -517,5 +688,9 @@ export function useStudentLiveStream() {
     isDisplayMediaSupported,
     mobileNoticeOpen,
     setMobileNoticeOpen,
+    shareModalOpen,
+    setShareModalOpen,
+    deviceInfo: getDeviceInfo(),
+    captureAndSendDomSnapshot,
   }
 }
