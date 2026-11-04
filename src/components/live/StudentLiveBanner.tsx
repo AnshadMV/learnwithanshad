@@ -29,6 +29,8 @@ export default function StudentLiveBanner() {
     setMobileNoticeOpen,
     shareModalOpen,
     setShareModalOpen,
+    remotePointer,
+    remoteNotice,
     deviceInfo,
     captureAndSendDomSnapshot,
   } = useStudentLiveStream()
@@ -56,6 +58,47 @@ export default function StudentLiveBanner() {
 
   return (
     <>
+      {/* Remote Pointer Ripple (Tutor Remote Click on Student Screen) */}
+      <AnimatePresence>
+        {remotePointer && (
+          <motion.div
+            key={remotePointer.id}
+            initial={{ scale: 0.2, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.2, opacity: 0 }}
+            style={{ left: `${remotePointer.x}px`, top: `${remotePointer.y}px` }}
+            className="student-live-ignore fixed -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[9999]"
+          >
+            <div className="relative flex items-center justify-center">
+              <span className="animate-ping absolute inline-flex h-20 w-20 rounded-full bg-sunny-400 opacity-80" />
+              <span className="animate-pulse absolute inline-flex h-12 w-12 rounded-full bg-amber-300 opacity-90" />
+              <div className="relative w-9 h-9 rounded-full bg-brand-blue border-2 border-white shadow-2xl flex items-center justify-center text-white text-base">
+                👆
+              </div>
+              <div className="absolute top-10 whitespace-nowrap bg-slate-900/95 text-sunny-300 text-xs font-black px-3 py-1 rounded-full shadow-2xl border border-sunny-400/50 flex items-center gap-1">
+                <span>✨</span>
+                <span>{remotePointer.teacherName} assisted here!</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Remote Activity Navigation Notification */}
+      <AnimatePresence>
+        {remoteNotice && (
+          <motion.div
+            initial={{ y: -60, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -60, opacity: 0 }}
+            className="student-live-ignore fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white font-black text-sm px-6 py-3 rounded-full shadow-2xl border-2 border-white/50 flex items-center gap-2"
+          >
+            <Sparkles className="w-5 h-5 text-sunny-300 animate-spin" />
+            <span>{remoteNotice}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 1. Teacher Encouragement Sticker Pop-up */}
       <AnimatePresence>
         {incomingReaction && (

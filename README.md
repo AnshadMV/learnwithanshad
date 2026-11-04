@@ -1,6 +1,6 @@
 # Learn Arabic with Anshad 🌟 (تَعَلُّم اللُّغَة العَرَبِيَّة مَعَ أَنْشَاد)
 
-A complete, production-ready, interactive Arabic letter learning web application tailored for children aged 5–7 years, Arabic tutors, teachers, and parents. Hosted on Vercel at [learnbyanshad.vercel.app](https://learnbyanshad.vercel.app).
+A complete, production-ready, interactive Arabic letter learning web application tailored for children aged 5–7 years, Arabic tutors, teachers, and parents. Hosted on Vercel at [learnfromanshad.vercel.app](https://learnfromanshad.vercel.app).
 
 ---
 

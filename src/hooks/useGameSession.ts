@@ -46,11 +46,13 @@ function getLiveChannel() {
 function broadcastLiveActivity(payload: Record<string, any>) {
   try {
     const ch = getLiveChannel()
-    ch.send({
-      type: 'broadcast',
-      event: 'student_activity',
-      payload,
-    }).catch(() => {})
+    if ((ch as any).state === 'joined') {
+      ch.send({
+        type: 'broadcast',
+        event: 'student_activity',
+        payload,
+      }).catch(() => {})
+    }
   } catch {}
 }
 

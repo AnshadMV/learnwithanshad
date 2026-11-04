@@ -5,6 +5,7 @@ import { ArrowLeft, Clock } from 'lucide-react'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
 import { getConfusableDistractors } from '@/data/letterPedagogy'
 import { useSound } from '@/hooks/useSound'
+import { useConfetti } from '@/hooks/useConfetti'
 import { useGameSession } from '@/hooks/useGameSession'
 import GameComplete from '@/components/game/GameComplete'
 import Button from '@/components/ui/Button'
@@ -35,6 +36,7 @@ export default function BalloonPopGame() {
   }, [paramLetter])
 
   const { playCorrect, playWrong, playClick } = useSound()
+  const { celebrate } = useConfetti()
   const { score, recordAnswer, completeGame, startGame } = useGameSession({
     gameSlug: 'balloon-pop',
     letterId: paramLetter || undefined,
@@ -110,6 +112,7 @@ export default function BalloonPopGame() {
 
     if (isTarget) {
       playCorrect()
+      celebrate()
       recordAnswer(true, 10)
     } else {
       playWrong()
@@ -215,9 +218,9 @@ export default function BalloonPopGame() {
                     left: `${balloon.x}%`,
                     backgroundColor: balloon.color,
                   }}
-                  className="absolute w-20 h-24 rounded-full flex flex-col items-center justify-center text-white shadow-lg cursor-pointer transform -translate-x-1/2 hover:scale-110 active:scale-90 transition-transform"
+                  className="absolute w-22 h-26 sm:w-24 sm:h-28 rounded-full flex flex-col items-center justify-center text-white shadow-lg cursor-pointer transform -translate-x-1/2 hover:scale-110 active:scale-90 transition-transform"
                 >
-                  <ArabicText size="2xl" weight="bold" className="text-white drop-shadow">
+                  <ArabicText size="3xl" weight="bold" className="text-4xl sm:text-5xl font-black text-white drop-shadow-md">
                     {balloon.letter}
                   </ArabicText>
                   {/* Balloon string knot */}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -26,6 +26,7 @@ export function getDeviceInfo() {
 export function useStudentLiveStream() {
   const { user, profile, isStudent } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const { playStar, playSparkle } = useSound()
   const { celebrate, celebrateBig } = useConfetti()
 
@@ -34,6 +35,8 @@ export function useStudentLiveStream() {
   const [screenShareRequested, setScreenShareRequested] = useState(false)
   const [mobileNoticeOpen, setMobileNoticeOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [remotePointer, setRemotePointer] = useState<{ x: number; y: number; teacherName: string; id: number } | null>(null)
+  const [remoteNotice, setRemoteNotice] = useState<string | null>(null)
 
   const isDisplayMediaSupported =
     typeof navigator !== 'undefined' &&
@@ -379,6 +382,75 @@ export function useStudentLiveStream() {
         setTimeout(() => setIncomingReaction(null), 3500)
       })
 
+      // Teacher remote control (click / navigate / hint)
+      .on('broadcast', { event: 'teacher_remote_control' }, ({ payload }) => {
+        if (!payload) return
+
+        if (payload.type === 'click') {
+          const xPct = payload.xPct ?? 50
+          const yPct = payload.yPct ?? 50
+          const clientX = Math.round((xPct / 100) * window.innerWidth)
+          const clientY = Math.round((yPct / 100) * window.innerHeight)
+
+          setRemotePointer({
+            x: clientX,
+            y: clientY,
+            teacherName: payload.teacherName || 'Ustadh Anshad',
+            id: Date.now(),
+          })
+          if (!payload.muted) {
+            playSparkle()
+          }
+
+          setTimeout(() => {
+            setRemotePointer(prev => (prev?.id === payload.timestamp ? null : prev))
+          }, 2400)
+
+          // Dispatch real click to DOM element under the point
+          const el = document.elementFromPoint(clientX, clientY)
+          if (el) {
+            const clickable = (el.closest('button, a, [role="button"], input, select, textarea, [tabindex="0"]') || el) as HTMLElement
+            if (clickable) {
+              clickable.focus?.()
+              clickable.click()
+
+              const evtInit = {
+                bubbles: true,
+                cancelable: true,
+                clientX,
+                clientY,
+                screenX: clientX,
+                screenY: clientY,
+                view: window,
+              }
+              clickable.dispatchEvent(new PointerEvent('pointerdown', evtInit))
+              clickable.dispatchEvent(new MouseEvent('mousedown', evtInit))
+              clickable.dispatchEvent(new PointerEvent('pointerup', evtInit))
+              clickable.dispatchEvent(new MouseEvent('mouseup', evtInit))
+              clickable.dispatchEvent(new MouseEvent('click', evtInit))
+            }
+          }
+
+          // Resend fresh DOM snapshot to teacher
+          setTimeout(captureAndSendDomSnapshot, 350)
+        } else if (payload.type === 'scroll') {
+          const deltaY = payload.deltaY || 0
+          window.scrollBy({ top: deltaY, behavior: 'smooth' })
+          setTimeout(captureAndSendDomSnapshot, 300)
+        } else if (payload.type === 'navigate' && payload.url) {
+          playStar()
+          setRemoteNotice(`Ustadh Anshad opened an activity for you! 🌟`)
+          setTimeout(() => setRemoteNotice(null), 3500)
+          navigate(payload.url)
+          setTimeout(captureAndSendDomSnapshot, 600)
+        } else if (payload.type === 'hint') {
+          playSparkle()
+          celebrate()
+          setRemoteNotice(`Ustadh sent you a golden hint! 💡`)
+          setTimeout(() => setRemoteNotice(null), 3500)
+        }
+      })
+
       // Teacher sends WebRTC Answer & ICE candidates
       .on('broadcast', { event: 'webrtc_signal' }, async ({ payload }) => {
         if (!payload || !peerConnectionRef.current) return
@@ -425,6 +497,7 @@ export function useStudentLiveStream() {
     celebrateBig,
     playSparkle,
     playStar,
+    navigate,
   ])
 
   // ---------------------------------------------------------------------------
@@ -443,17 +516,21 @@ export function useStudentLiveStream() {
         timestamp: new Date().toISOString(),
       }
 
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'student_viewport',
-        payload,
-      }).catch(() => {})
+      if ((channelRef.current as any)?.state === 'joined') {
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'student_viewport',
+          payload,
+        }).catch(() => {})
+      }
 
-      sharedChannelRef.current?.send({
-        type: 'broadcast',
-        event: 'student_viewport',
-        payload,
-      }).catch(() => {})
+      if ((sharedChannelRef.current as any)?.state === 'joined') {
+        sharedChannelRef.current?.send({
+          type: 'broadcast',
+          event: 'student_viewport',
+          payload,
+        }).catch(() => {})
+      }
     }
 
     sendState()
@@ -690,6 +767,8 @@ export function useStudentLiveStream() {
     setMobileNoticeOpen,
     shareModalOpen,
     setShareModalOpen,
+    remotePointer,
+    remoteNotice,
     deviceInfo: getDeviceInfo(),
     captureAndSendDomSnapshot,
   }

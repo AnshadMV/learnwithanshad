@@ -66,7 +66,8 @@ export function useArabicSpeech(): UseArabicSpeechReturn {
       }
 
       utterance.onerror = (e) => {
-        // Graceful degradation — log but don't throw
+        // Speech cancellation or rapid interruptions are expected when switching sounds
+        if (e.error === 'interrupted' || e.error === 'canceled') return
         console.warn('[useArabicSpeech] SpeechSynthesis error:', e.error)
       }
 

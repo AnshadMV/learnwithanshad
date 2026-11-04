@@ -4,7 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Volume2, ArrowLeft, RotateCcw, Trophy, Sparkles } from 'lucide-react'
 import { ARABIC_LETTERS, LetterData } from '@/data/arabicLetters'
 import { getConfusableDistractors } from '@/data/letterPedagogy'
+import { getKidCardTheme } from '@/data/kidColorThemes'
 import { useSound } from '@/hooks/useSound'
+import { useConfetti } from '@/hooks/useConfetti'
 import { useGameSession } from '@/hooks/useGameSession'
 import { useArabicSpeech } from '@/hooks/useArabicSpeech'
 import GameComplete from '@/components/game/GameComplete'
@@ -19,6 +21,7 @@ export default function LetterSafariGame() {
   const paramLetter = searchParams.get('letter')
 
   const { playCorrect, playWrong, playClick } = useSound()
+  const { celebrate } = useConfetti()
   const { speak } = useArabicSpeech()
   const { score, questionsTotal, questionsCorrect, recordAnswer, completeGame, startGame } =
     useGameSession({
@@ -75,6 +78,7 @@ export default function LetterSafariGame() {
 
     if (isCorrect) {
       playCorrect()
+      celebrate()
       setIsCorrectFeedback(true)
       recordAnswer(true, 10)
     } else {
@@ -169,15 +173,16 @@ export default function LetterSafariGame() {
           </div>
 
           {/* 3x3 Grid */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {options.map((letter, idx) => {
+              const theme = getKidCardTheme(idx)
               const isSelected = selectedLetter === letter.id
               const isTarget = letter.id === targetLetter.id
 
-              let cardBg = 'bg-white border-gray-200 hover:border-blue-300'
+              let cardBg = `${theme.bg} ${theme.border} ${theme.hoverBorder} ${theme.hoverBg} shadow-md`
               if (isSelected) {
                 cardBg = isTarget
-                  ? 'bg-emerald-500 text-white border-emerald-500 scale-105 shadow-lg'
+                  ? 'bg-emerald-500 text-white border-emerald-500 scale-105 shadow-xl ring-4 ring-emerald-300'
                   : 'bg-rose-500 text-white border-rose-500 scale-95 shadow-md'
               }
 
@@ -187,18 +192,18 @@ export default function LetterSafariGame() {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.97 }}
                   onClick={() => handleSelect(letter)}
-                  className={`p-6 sm:p-8 rounded-3xl border-4 text-center transition-all flex flex-col items-center justify-center min-h-[140px] shadow-sm ${cardBg}`}
+                  className={`p-6 sm:p-8 rounded-3xl border-4 text-center transition-all flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px] shadow-sm ${cardBg}`}
                 >
                   <ArabicText
-                    size="2xl"
+                    size="3xl"
                     weight="bold"
-                    className={isSelected ? 'text-white' : 'text-brand-blue'}
+                    className={`text-5xl sm:text-6xl font-black ${isSelected ? 'text-white' : theme.text}`}
                   >
                     {letter.letter}
                   </ArabicText>
                   <span
-                    className={`text-xs font-bold mt-2 ${
-                      isSelected ? 'text-white/90' : 'text-gray-400'
+                    className={`text-xs font-black mt-2 ${
+                      isSelected ? 'text-white/90' : 'text-gray-700'
                     }`}
                   >
                     {letter.name_english}

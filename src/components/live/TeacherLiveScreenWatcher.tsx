@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   X, 
   Tv, 
   Maximize2, 
   Minimize2, 
   Volume2, 
+  VolumeX,
   Radio, 
   MousePointer, 
   RotateCcw,
@@ -13,10 +14,19 @@ import {
   Camera,
   Layers,
   Smartphone,
-  Monitor
+  Monitor,
+  Gamepad2,
+  Lightbulb,
+  Send,
+  CheckCircle2,
+  Hand,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useSound } from '@/hooks/useSound'
+import { ARABIC_LETTERS } from '@/data/arabicLetters'
 import Button from '@/components/ui/Button'
 
 interface TeacherLiveScreenWatcherProps {
@@ -54,13 +64,38 @@ interface ViewportState {
   deviceType?: 'mobile' | 'tablet' | 'desktop'
 }
 
+const CONTROL_GAMES = [
+  { slug: 'find-different', name: 'Find Different Letter 🕵️' },
+  { slug: 'memory-cards', name: 'Memory Cards 🃏' },
+  { slug: 'letter-detective', name: 'Letter Detective 🔎' },
+  { slug: 'letter-bingo', name: 'Letter Bingo 🎱' },
+  { slug: 'letter-safari', name: 'Letter Safari 🦁' },
+  { slug: 'letter-picture-match', name: 'Picture Match 🎯' },
+  { slug: 'shape-match', name: 'Letter Shape Match 🔷' },
+  { slug: 'balloon-pop', name: 'Balloon Pop 🎈' },
+  { slug: 'letter-fishing', name: 'Letter Fishing 🎣' },
+  { slug: 'complete-word', name: 'Complete the Word 📝' },
+  { slug: 'build-letter', name: 'Build the Letter 🧩' },
+  { slug: 'trace-letter', name: 'Trace Letter ✏️' },
+]
+
 export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLiveScreenWatcherProps) {
-  const { playCorrect, playStar, playCoin } = useSound()
+  const { playCorrect, playStar, playCoin, playClick } = useSound()
 
   const [hasVideoStream, setHasVideoStream] = useState(false)
   const [liveSnapshot, setLiveSnapshot] = useState<string | null>(null)
   const [cursorPos, setCursorPos] = useState<CursorEvent>({ xPct: 50, yPct: 50, isClick: false, timestamp: Date.now() })
   const [recentClicks, setRecentClicks] = useState<Array<{ id: number; x: number; y: number }>>([])
+  const [teacherClicks, setTeacherClicks] = useState<Array<{ id: number; x: number; y: number }>>([])
+
+  // Remote Control State
+  const [remoteControlActive, setRemoteControlActive] = useState(true)
+  const [remoteSoundMuted, setRemoteSoundMuted] = useState(false)
+  const [remoteGame, setRemoteGame] = useState('find-different')
+  const [remoteLetter, setRemoteLetter] = useState(
+    student.current_letter && student.current_letter !== '—' ? student.current_letter : 'alef'
+  )
+  const [remoteFeedbackToast, setRemoteFeedbackToast] = useState<string | null>(null)
   
   const [viewportState, setViewportState] = useState<ViewportState>({
     pathname: student.current_game && student.current_game !== 'idle' ? '/games/' + student.current_game : '/alphabet',
@@ -75,7 +110,7 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
 
   const [activityFeed, setActivityFeed] = useState<string[]>([
     `Observing ${student.display_name}'s live screen`,
-    `Connected to live interaction feed`,
+    `Remote Control Assist Ready: Tap student screen to interact!`,
   ])
   const [sentReaction, setSentReaction] = useState<string | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -253,8 +288,161 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
   }, [student.student_id, playCoin])
 
   // ---------------------------------------------------------------------------
-  // Teacher Actions
+  // Teacher Remote Click on Student Screen
   // ---------------------------------------------------------------------------
+  const handleScreenClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!remoteControlActive) return
+
+    const container = e.currentTarget
+    const rect = container.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const clickY = e.clientY - rect.top
+
+    let xPct = 50
+    let yPct = 50
+
+    // Measure media element inside container if present (taking object-contain scaling into account)
+    const mediaEl = container.querySelector('video, img') as HTMLVideoElement | HTMLImageElement | null
+    if (mediaEl) {
+      const naturalWidth = (mediaEl as HTMLVideoElement).videoWidth || (mediaEl as HTMLImageElement).naturalWidth || rect.width
+      const naturalHeight = (mediaEl as HTMLVideoElement).videoHeight || (mediaEl as HTMLImageElement).naturalHeight || rect.height
+
+      if (naturalWidth > 0 && naturalHeight > 0) {
+        const mediaAspect = naturalWidth / naturalHeight
+        const containerAspect = rect.width / rect.height
+        let renderW = rect.width
+        let renderH = rect.height
+        let offX = 0
+        let offY = 0
+
+        if (containerAspect > mediaAspect) {
+          renderW = rect.height * mediaAspect
+          renderH = rect.height
+          offX = (rect.width - renderW) / 2
+        } else {
+          renderW = rect.width
+          renderH = rect.width / mediaAspect
+          offY = (rect.height - renderH) / 2
+        }
+
+        const relX = clickX - offX
+        const relY = clickY - offY
+
+        if (relX < 0 || relX > renderW || relY < 0 || relY > renderH) {
+          return // Outside actual screen area
+        }
+
+        xPct = Math.round((relX / renderW) * 1000) / 10
+        yPct = Math.round((relY / renderH) * 1000) / 10
+      } else {
+        xPct = Math.round((clickX / rect.width) * 1000) / 10
+        yPct = Math.round((clickY / rect.height) * 1000) / 10
+      }
+    } else {
+      xPct = Math.round((clickX / rect.width) * 1000) / 10
+      yPct = Math.round((clickY / rect.height) * 1000) / 10
+    }
+
+    // Broadcast Remote Click to Student Device
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'teacher_remote_control',
+      payload: {
+        type: 'click',
+        xPct,
+        yPct,
+        muted: remoteSoundMuted,
+        teacherName: 'Ustadh Anshad',
+        timestamp: Date.now(),
+      },
+    }).catch(() => {})
+
+    if (!remoteSoundMuted) {
+      playClick()
+    }
+    setTeacherClicks(prev => [{ id: Date.now(), x: xPct, y: yPct }, ...prev.slice(0, 5)])
+    setActivityFeed(prev => [
+      `🎮 Remote Click dispatched at (${Math.round(xPct)}%, ${Math.round(yPct)}%) to ${student.display_name}${remoteSoundMuted ? ' (muted)' : ''}`,
+      ...prev.slice(0, 8),
+    ])
+
+    // Request fresh snapshot after short delay
+    setTimeout(requestSnapshot, 450)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Teacher Remote Scroll on Student Screen
+  // ---------------------------------------------------------------------------
+  const handleRemoteScroll = (deltaY: number) => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'teacher_remote_control',
+      payload: {
+        type: 'scroll',
+        deltaY,
+        teacherName: 'Ustadh Anshad',
+        timestamp: Date.now(),
+      },
+    }).catch(() => {})
+
+    const directionLabel = deltaY === -99999 ? 'to top' : deltaY > 0 ? 'down' : 'up'
+    setActivityFeed(prev => [
+      `📜 Remotely scrolled student screen ${directionLabel}`,
+      ...prev.slice(0, 8),
+    ])
+    setTimeout(requestSnapshot, 400)
+  }
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!remoteControlActive) return
+    e.preventDefault()
+    handleRemoteScroll(e.deltaY)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Teacher Remote Launch & Controls
+  // ---------------------------------------------------------------------------
+  const handleRemoteLaunch = () => {
+    const targetUrl = `/games/${remoteGame}?letter=${remoteLetter}`
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'teacher_remote_control',
+      payload: {
+        type: 'navigate',
+        url: targetUrl,
+        teacherName: 'Ustadh Anshad',
+        timestamp: Date.now(),
+      },
+    }).catch(() => {})
+
+    playStar()
+    const gameName = CONTROL_GAMES.find(g => g.slug === remoteGame)?.name || remoteGame
+    setRemoteFeedbackToast(`Launched ${gameName} for ${student.display_name}! 🚀`)
+    setActivityFeed(prev => [
+      `🚀 Remotely navigated ${student.display_name} to ${gameName} (${remoteLetter})`,
+      ...prev.slice(0, 8),
+    ])
+    setTimeout(() => setRemoteFeedbackToast(null), 3000)
+    setTimeout(requestSnapshot, 600)
+  }
+
+  const handleRemoteHint = () => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'teacher_remote_control',
+      payload: {
+        type: 'hint',
+        teacherName: 'Ustadh Anshad',
+        timestamp: Date.now(),
+      },
+    }).catch(() => {})
+
+    playStar()
+    setRemoteFeedbackToast(`Sent hint to ${student.display_name}! 💡`)
+    setActivityFeed(prev => [`💡 Sent golden hint to ${student.display_name}!`, ...prev.slice(0, 8)])
+    setTimeout(() => setRemoteFeedbackToast(null), 2500)
+  }
+
   const requestScreenShare = () => {
     channelRef.current?.send({
       type: 'broadcast',
@@ -312,7 +500,7 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-2 sm:p-5 overflow-y-auto">
       <div
         ref={containerRef}
-        className="bg-slate-900 border-2 border-blue-500/40 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl flex flex-col text-white"
+        className="bg-slate-900 border-2 border-blue-500/40 rounded-3xl w-full max-w-6xl overflow-hidden shadow-2xl flex flex-col text-white"
         style={{ maxHeight: '96vh' }}
       >
         {/* Top Header */}
@@ -328,42 +516,29 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
               </span>
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-black tracking-tight">{student.display_name}'s Screen</h2>
                 <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border border-rose-500/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                   Live Mirror
                 </span>
-                {hasVideoStream ? (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    60fps HD Video
-                  </span>
-                ) : liveSnapshot ? (
-                  <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold border border-teal-500/30 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                    {viewportState.deviceType === 'tablet'
-                      ? '📱 Live Tablet Screen'
-                      : viewportState.deviceType === 'mobile'
-                      ? '📱 Live Phone Screen'
-                      : '🗂️ Live Tab Stream'}
-                  </span>
-                ) : viewportState.deviceType === 'tablet' || viewportState.isTablet ? (
-                  <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold border border-teal-500/30 flex items-center gap-1">
-                    📱 Tablet Connecting...
-                  </span>
-                ) : viewportState.deviceType === 'mobile' || viewportState.isMobile ? (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1">
-                    📱 Mobile Connecting...
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-[10px] font-bold border border-blue-500/30">
-                    Connecting Stream...
-                  </span>
-                )}
+
+                {/* Remote Control Badge */}
+                <button
+                  onClick={() => setRemoteControlActive(!remoteControlActive)}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border transition-all ${
+                    remoteControlActive
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 ring-2 ring-amber-400/30 shadow'
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}
+                  title="Click to toggle remote control"
+                >
+                  <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Remote Assist: {remoteControlActive ? 'ON' : 'OFF'}</span>
+                </button>
               </div>
-              <p className="text-xs text-slate-400">
-                Active Game: <strong className="text-white capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</strong>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Active: <strong className="text-white capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</strong>
                 {viewportState.letterId && (
                   <> • Letter: <strong className="text-sunny-300 font-arabic">{viewportState.letterId}</strong></>
                 )}
@@ -392,150 +567,161 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
         {/* Main Display Body */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 min-h-0 bg-slate-950">
           {/* Left: Screen Viewport */}
-          <div className="lg:col-span-3 p-3 sm:p-4 flex flex-col items-center justify-center relative min-h-[380px] sm:min-h-[480px] bg-slate-900/60 overflow-hidden">
-            {hasVideoStream ? (
-              // 1. Direct WebRTC Video Feed
-              <div className="w-full h-full flex items-center justify-center relative rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-inner">
+          <div className="lg:col-span-3 p-3 sm:p-4 flex flex-col items-center justify-between relative min-h-[400px] sm:min-h-[500px] bg-slate-900/60 overflow-hidden">
+            {/* Interactive Monitor Viewport Container */}
+            <div
+              onClick={handleScreenClick}
+              onWheel={handleWheel}
+              className={`w-full flex-1 flex items-center justify-center relative rounded-2xl overflow-hidden bg-black border-2 transition-all select-none ${
+                remoteControlActive
+                  ? 'border-amber-400/60 cursor-crosshair hover:shadow-[0_0_20px_rgba(251,191,36,0.2)]'
+                  : 'border-slate-800'
+              }`}
+            >
+              {hasVideoStream ? (
+                // 1. Direct WebRTC Video Feed
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
-                  className="w-full h-full object-contain max-h-[520px]"
+                  className="w-full h-full object-contain max-h-[500px] pointer-events-none"
                 />
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-emerald-400 border border-white/10 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Direct WebRTC Screen Stream
-                </div>
-              </div>
-            ) : liveSnapshot ? (
-              // 2. High-Fidelity Frame Snapshot Stream (Tab or Tablet/Mobile Screen)
-              <div className="w-full h-full flex items-center justify-center relative rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-inner">
+              ) : liveSnapshot ? (
+                // 2. High-Fidelity Snapshot Image
                 <img
                   src={liveSnapshot}
                   alt={`${student.display_name}'s live screen`}
-                  className="w-full h-full object-contain max-h-[520px] rounded-xl"
+                  className="w-full h-full object-contain max-h-[500px] rounded-xl pointer-events-none"
                 />
-                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono text-teal-300 border border-white/10 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
-                  {viewportState.deviceType === 'tablet'
-                    ? '📱 Live Tablet Screen Stream'
-                    : viewportState.deviceType === 'mobile'
-                    ? '📱 Live Mobile Screen Stream'
-                    : '🗂️ Live Visual Screen Stream'}
-                </div>
-
-                {/* Laser Cursor Overlay on Snapshot */}
-                <motion.div
-                  className="absolute pointer-events-none z-30 flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
-                  animate={{
-                    left: `${cursorPos.xPct}%`,
-                    top: `${cursorPos.yPct}%`,
-                  }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                >
-                  <div className="w-6 h-6 rounded-full bg-rose-500/90 border-2 border-white shadow-lg flex items-center justify-center text-white">
-                    <MousePointer className="w-3.5 h-3.5 fill-white" />
+              ) : (
+                // 3. Sync Notice Viewport
+                <div className="w-full h-full max-w-2xl aspect-[16/10] bg-slate-900 rounded-2xl flex flex-col items-center justify-center p-6 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-4xl">
+                    💻
                   </div>
-                  <span className="px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-bold text-white shadow whitespace-nowrap">
-                    {student.display_name}
-                  </span>
-                </motion.div>
-
-                {/* Click / Tap Ripples */}
-                {recentClicks.map(c => (
-                  <motion.div
-                    key={c.id}
-                    initial={{ scale: 0, opacity: 1 }}
-                    animate={{ scale: 3.5, opacity: 0 }}
-                    transition={{ duration: 0.8 }}
-                    className="absolute pointer-events-none w-10 h-10 rounded-full border-4 border-sunny-400 bg-sunny-300/30 -translate-x-1/2 -translate-y-1/2 z-20"
-                    style={{ left: `${c.x}%`, top: `${c.y}%` }}
-                  />
-                ))}
-              </div>
-            ) : (
-              // 3. Dynamic Connecting / Sync Viewport
-              <div className="w-full h-full max-w-3xl aspect-[16/10] bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 rounded-2xl border-4 border-slate-700 shadow-2xl relative overflow-hidden flex flex-col justify-between text-white select-none">
-                {/* Mirrored Header Bar */}
-                <div className="bg-slate-950/90 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="font-mono text-slate-300 font-bold">{viewportState.pathname}</span>
-                  </div>
-                  <div className="text-slate-400 text-[11px] flex items-center gap-2">
-                    <span>{student.display_name}'s {viewportState.deviceType || 'Device'}</span>
-                    <span>•</span>
-                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-bold">
-                      SCORE: {viewportState.score}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Center Loading & Sync Notice */}
-                <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-3xl bg-brand-blue/20 border-2 border-blue-400/40 flex items-center justify-center text-4xl shadow-lg">
-                      {viewportState.deviceType === 'tablet' ? '📱' : viewportState.deviceType === 'mobile' ? '📱' : '💻'}
-                    </div>
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-4 w-4 bg-teal-500"></span>
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-black text-white">
-                      Connecting to {student.display_name}'s Screen
-                    </h3>
-                    <p className="text-xs text-slate-400 max-w-sm">
-                      {viewportState.deviceType === 'tablet' || viewportState.deviceType === 'mobile'
-                        ? 'Student is playing on a touch device. Live screen snapshots are syncing...'
-                        : 'Waiting for student screen stream or active game feed...'}
+                  <div>
+                    <h3 className="text-lg font-black text-white">Connecting to {student.display_name}'s Screen</h3>
+                    <p className="text-xs text-slate-400 max-w-xs mt-1">
+                      Student is connected. Live snapshots and stream frames are syncing...
                     </p>
                   </div>
-
-                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={requestSnapshot}
-                      className="text-xs bg-teal-600 hover:bg-teal-500 border-0 flex items-center gap-1.5 shadow"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      <span>Request Screen Snapshot 📸</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={requestScreenShare}
-                      className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5"
-                    >
-                      <Tv className="w-3.5 h-3.5 text-blue-400" />
-                      <span>Request Full Screen Stream 📺</span>
-                    </Button>
-                  </div>
+                  <Button size="sm" variant="primary" onClick={requestSnapshot} className="text-xs bg-teal-600 hover:bg-teal-500">
+                    Refresh Screen Snapshot 📸
+                  </Button>
                 </div>
+              )}
 
-                {/* Mirrored Footer */}
-                <div className="bg-slate-950/80 px-4 py-2 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between font-mono">
-                  <span>Pointer: ({Math.round(cursorPos.xPct)}%, {Math.round(cursorPos.yPct)}%)</span>
-                  <span>Sync: Live Interaction Broadcast Active</span>
+              {/* Laser Cursor Overlay of Student */}
+              <motion.div
+                className="absolute pointer-events-none z-30 flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
+                animate={{
+                  left: `${cursorPos.xPct}%`,
+                  top: `${cursorPos.yPct}%`,
+                }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              >
+                <div className="w-6 h-6 rounded-full bg-rose-500/90 border-2 border-white shadow-lg flex items-center justify-center text-white">
+                  <MousePointer className="w-3.5 h-3.5 fill-white" />
                 </div>
-              </div>
-            )}
+                <span className="px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-bold text-white shadow whitespace-nowrap">
+                  {student.display_name}
+                </span>
+              </motion.div>
+
+              {/* Student Clicks Ripples */}
+              {recentClicks.map(c => (
+                <motion.div
+                  key={c.id}
+                  initial={{ scale: 0, opacity: 1 }}
+                  animate={{ scale: 3.5, opacity: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="absolute pointer-events-none w-10 h-10 rounded-full border-4 border-rose-400 bg-rose-400/30 -translate-x-1/2 -translate-y-1/2 z-20"
+                  style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                />
+              ))}
+
+              {/* Teacher Remote Clicks Ripples (Golden) */}
+              {teacherClicks.map(c => (
+                <motion.div
+                  key={c.id}
+                  initial={{ scale: 0, opacity: 1 }}
+                  animate={{ scale: 4, opacity: 0 }}
+                  transition={{ duration: 0.9 }}
+                  className="absolute pointer-events-none w-12 h-12 rounded-full border-4 border-amber-300 bg-amber-400/40 -translate-x-1/2 -translate-y-1/2 z-40 flex items-center justify-center text-[10px] font-black text-amber-200"
+                  style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                />
+              ))}
+
+              {/* Remote Control Active Banner Overlay on Screen */}
+              {remoteControlActive && (
+                <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-slate-950 border border-amber-300 shadow-lg flex items-center gap-1.5 pointer-events-none">
+                  <Hand className="w-3.5 h-3.5 animate-bounce" />
+                  <span>CLICK SCREEN TO TAP FOR STUDENT</span>
+                </div>
+              )}
+            </div>
 
             {/* Bottom Controls Bar */}
-            <div className="w-full mt-3 flex items-center justify-between gap-3 px-2">
-              <div className="flex items-center gap-2">
+            <div className="w-full mt-3 flex items-center justify-between gap-3 px-1 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={requestScreenShare}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-white border-slate-700 flex items-center gap-1.5 shadow-sm"
+                  onClick={() => setRemoteControlActive(!remoteControlActive)}
+                  className={`text-xs flex items-center gap-1.5 ${
+                    remoteControlActive
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold hover:bg-amber-400'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
                 >
-                  <Tv className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Request Screen Stream</span>
+                  <Gamepad2 className="w-3.5 h-3.5" />
+                  <span>Remote Assist: {remoteControlActive ? 'Active' : 'Paused'}</span>
                 </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setRemoteSoundMuted(!remoteSoundMuted)}
+                  className={`text-xs flex items-center gap-1.5 ${
+                    remoteSoundMuted
+                      ? 'bg-rose-950/70 text-rose-300 border-rose-700/60 hover:bg-rose-900'
+                      : 'bg-slate-800 text-emerald-300 border-slate-700 hover:bg-slate-700'
+                  }`}
+                  title={remoteSoundMuted ? 'Student audio is muted during remote clicks' : 'Student audio is unmuted during remote clicks'}
+                >
+                  {remoteSoundMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                  <span>{remoteSoundMuted ? 'Muted' : 'Sound ON'}</span>
+                </Button>
+
+                <div className="flex items-center gap-1 bg-slate-950/90 px-2 py-1 rounded-xl border border-slate-800">
+                  <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                    <ArrowUpDown className="w-3 h-3 text-slate-400" /> Scroll:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoteScroll(-220)}
+                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors flex items-center gap-0.5"
+                    title="Scroll Up on student screen"
+                  >
+                    <ChevronUp className="w-3 h-3 text-teal-400" /> Up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoteScroll(220)}
+                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors flex items-center gap-0.5"
+                    title="Scroll Down on student screen"
+                  >
+                    <ChevronDown className="w-3 h-3 text-teal-400" /> Down
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoteScroll(-99999)}
+                    className="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 transition-colors"
+                    title="Scroll to Top on student screen"
+                  >
+                    Top
+                  </button>
+                </div>
 
                 <Button
                   size="sm"
@@ -544,7 +730,17 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                   className="text-xs bg-slate-800 hover:bg-slate-700 text-teal-300 border-slate-700 flex items-center gap-1.5 shadow-sm"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Refresh Snapshot 📸</span>
+                  <span>Refresh View 📸</span>
+                </Button>
+
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleRemoteHint}
+                  className="text-xs bg-amber-950/60 hover:bg-amber-900 text-amber-300 border-amber-700/60 flex items-center gap-1.5"
+                >
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Send Hint 💡</span>
                 </Button>
 
                 <Button
@@ -558,44 +754,85 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                 </Button>
               </div>
 
-              {sentReaction && (
-                <span className="text-xs font-bold text-sunny-400 animate-pulse">
-                  Cheer {sentReaction} sent to student!
+              {remoteFeedbackToast && (
+                <span className="text-xs font-bold text-amber-300 animate-pulse bg-amber-900/40 px-3 py-1 rounded-full border border-amber-500/40">
+                  {remoteFeedbackToast}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Right Sidebar: Live Activity Feed & Quick Stickers */}
-          <div className="p-4 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between space-y-4">
+          {/* Right Sidebar: Remote Control Station & Activity Feed */}
+          <div className="p-4 bg-slate-900 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col justify-between space-y-4 overflow-y-auto">
             <div className="space-y-4">
-              <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
-                  <span>Live Student Activity</span>
-                </h4>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                  {activityFeed.map((msg, i) => (
-                    <div
-                      key={i}
-                      className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[11px] leading-tight text-slate-300"
+              {/* Tutor Remote Navigation Box */}
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <Gamepad2 className="w-3.5 h-3.5" />
+                    <span>Remote Activity Station</span>
+                  </h4>
+                  <span className="text-[10px] text-slate-400">Tutor Controls</span>
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                      Choose Game:
+                    </label>
+                    <select
+                      value={remoteGame}
+                      onChange={e => setRemoteGame(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
                     >
-                      {msg}
-                    </div>
-                  ))}
+                      {CONTROL_GAMES.map(g => (
+                        <option key={g.slug} value={g.slug}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 block mb-1">
+                      Target Letter:
+                    </label>
+                    <select
+                      value={remoteLetter}
+                      onChange={e => setRemoteLetter(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400"
+                    >
+                      {ARABIC_LETTERS.map(l => (
+                        <option key={l.id} value={l.id}>
+                          {l.letter} — {l.name_english} ({l.name_arabic})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={handleRemoteLaunch}
+                    className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs py-2 shadow-md flex items-center justify-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Launch on Student Screen 🚀</span>
+                  </Button>
                 </div>
               </div>
 
+              {/* Instant Encouragement */}
               <div>
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2">
-                  Send Instant Encouragement
+                  Instant Encouragement
                 </h4>
                 <div className="grid grid-cols-5 gap-1.5">
                   {['⭐', '🎉', '👏', '🏆', '❤️'].map(emoji => (
                     <button
                       key={emoji}
                       onClick={() => sendReaction(emoji)}
-                      className="p-2.5 rounded-xl bg-slate-800 hover:bg-brand-blue text-xl hover:scale-110 active:scale-95 transition-all text-center"
+                      className="p-2 rounded-xl bg-slate-800 hover:bg-brand-blue text-lg hover:scale-110 active:scale-95 transition-all text-center"
                       title={`Send ${emoji} to ${student.display_name}`}
                     >
                       {emoji}
@@ -603,27 +840,50 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                   ))}
                 </div>
               </div>
+
+              {/* Activity Feed */}
+              <div>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                  <span>Interaction Log</span>
+                </h4>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {activityFeed.map((msg, i) => (
+                    <div
+                      key={i}
+                      className="p-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-[10px] leading-tight text-slate-300"
+                    >
+                      {msg}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5 text-xs">
+            {/* Session info */}
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
               <span className="font-bold text-slate-400 block text-[10px] uppercase">
-                Active Session Summary
+                Active Student Status
               </span>
-              <div className="flex justify-between text-slate-300 text-xs">
-                <span>Device:</span>
-                <span className="font-bold text-slate-200 capitalize">{viewportState.deviceType || 'Device'}</span>
-              </div>
               <div className="flex justify-between text-slate-300 text-xs">
                 <span>Current Game:</span>
                 <span className="font-bold text-brand-blue capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</span>
               </div>
               <div className="flex justify-between text-slate-300 text-xs">
-                <span>Current Score:</span>
-                <span className="font-bold text-emerald-400">{viewportState.score} pts</span>
+                <span>Score / Accuracy:</span>
+                <span className="font-bold text-emerald-400">{viewportState.score} pts ({viewportState.accuracy}%)</span>
               </div>
               <div className="flex justify-between text-slate-300 text-xs">
-                <span>Engagement:</span>
-                <span className="font-bold text-emerald-400">Active Live</span>
+                <span>Remote Click:</span>
+                <span className="font-bold text-amber-300">
+                  {remoteControlActive ? 'Enabled 🎯' : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-300 text-xs">
+                <span>Remote Audio:</span>
+                <span className={`font-bold ${remoteSoundMuted ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {remoteSoundMuted ? 'Muted 🔇' : 'Unmuted 🔊'}
+                </span>
               </div>
             </div>
           </div>
