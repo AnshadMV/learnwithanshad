@@ -168,10 +168,10 @@ export default function FindDifferentLetterGame() {
       )}
 
       {gameState === 'playing' && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Question / Mission Card */}
-          <div className="bg-white rounded-3xl p-6 shadow-card text-center border-4 border-sunny-200">
-            <div className="flex items-center justify-between text-xs font-extrabold uppercase text-gray-400 mb-1">
+          <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-card text-center border-2 sm:border-4 border-amber-300">
+            <div className="flex items-center justify-between text-[11px] sm:text-xs font-black uppercase text-gray-400 mb-0.5">
               <span>Round {currentRound + 1} of {TOTAL_ROUNDS}</span>
               {targetLetterObj && (
                 <span className="text-brand-blue font-bold">
@@ -179,25 +179,32 @@ export default function FindDifferentLetterGame() {
                 </span>
               )}
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-800 mt-1">
+            <h2 className="text-lg sm:text-2xl font-black text-gray-800">
               {roundPrompt.title}
             </h2>
-            <p className="text-sm font-semibold text-gray-600 mt-2 max-w-md mx-auto">
+            <p className="text-xs sm:text-sm font-semibold text-gray-600 mt-1 max-w-md mx-auto">
               {roundPrompt.subtitle}
             </p>
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-5 gap-2 sm:gap-4">
+          {/* Cards Grid: Perfectly responsive and readable on mobile & tablet */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3.5 max-w-xl mx-auto">
             {cards.map((card, idx) => {
               const theme = getKidCardTheme(idx)
               const isSelected = selectedIdx === idx
-              let cardStyle = `${theme.bg} ${theme.border} ${theme.hoverBorder} ${theme.hoverBg} shadow-md`
+              let cardStyle = `${theme.bg} ${theme.border} ${theme.hoverBorder} ${theme.hoverBg} shadow-sm`
               if (isSelected) {
                 cardStyle = card.isOdd
                   ? 'bg-emerald-500 text-white border-emerald-500 scale-105 shadow-xl ring-4 ring-emerald-300'
                   : 'bg-rose-500 text-white border-rose-500 scale-95 shadow-md'
               }
+
+              // Clean label for young kids without long repetitive text
+              const shortLabel = card.name
+                ? card.name.replace(/^(Alef|Baa|Taa|Thaa|Jim|Haa|Khaa|Dal|Thal|Raa|Zay|Sin|Shin|Sad|Dad|Taa|Zaa|Ayn|Ghayn|Faa|Qaf|Kaf|Lam|Mim|Nun|Haa|Waw|Yaa|Ta) (with |Isolated|Initial|Medial|Final|)/i, '$2 ')
+                    .replace(/^with /i, '')
+                    .trim()
+                : ''
 
               return (
                 <motion.button
@@ -205,18 +212,18 @@ export default function FindDifferentLetterGame() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleCardClick(idx, card)}
-                  className={`p-3 sm:p-5 rounded-3xl border-4 text-center min-h-[150px] sm:min-h-[175px] flex flex-col items-center justify-center gap-1 shadow-card transition-all cursor-pointer ${cardStyle}`}
+                  className={`flex-1 min-w-[85px] max-w-[125px] sm:min-w-[105px] h-28 sm:h-36 rounded-2xl sm:rounded-3xl border-3 sm:border-4 text-center flex flex-col items-center justify-center gap-0.5 shadow-card transition-all cursor-pointer ${cardStyle}`}
                 >
                   <ArabicText
                     size="3xl"
                     weight="bold"
-                    className={`text-5xl sm:text-6xl font-black ${isSelected ? 'text-white' : theme.text}`}
+                    className={`text-4xl sm:text-5xl font-black leading-tight ${isSelected ? 'text-white' : theme.text}`}
                   >
                     {card.letter}
                   </ArabicText>
-                  {card.name && (
-                    <span className={`text-xs font-black truncate max-w-full ${isSelected ? 'text-white/90' : 'text-gray-600'}`}>
-                      {card.name}
+                  {shortLabel && (
+                    <span className={`text-[10px] sm:text-xs font-black truncate max-w-full px-1.5 ${isSelected ? 'text-white/95' : 'text-slate-600'}`}>
+                      {shortLabel}
                     </span>
                   )}
                 </motion.button>

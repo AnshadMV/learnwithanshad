@@ -22,7 +22,9 @@ import {
   Hand,
   ChevronUp,
   ChevronDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useSound } from '@/hooks/useSound'
@@ -91,6 +93,14 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
   // Remote Control State
   const [remoteControlActive, setRemoteControlActive] = useState(true)
   const [remoteSoundMuted, setRemoteSoundMuted] = useState(false)
+  const [muteAllSound, setMuteAllSound] = useState(false)
+  const [hideUsthadCursor, setHideUsthadCursor] = useState(() => {
+    try {
+      return localStorage.getItem('arabic_hide_usthad_cursor') === 'true'
+    } catch {
+      return false
+    }
+  })
   const [remoteGame, setRemoteGame] = useState('find-different')
   const [remoteLetter, setRemoteLetter] = useState(
     student.current_letter && student.current_letter !== '—' ? student.current_letter : 'alef'
@@ -222,7 +232,9 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
         })
 
         if (payload.isClick) {
-          playCoin()
+          if (!muteAllSound) {
+            playCoin()
+          }
           setRecentClicks(prev => [
             { id: Date.now(), x: payload.xPct, y: payload.yPct },
             ...prev.slice(0, 5),
@@ -351,18 +363,19 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
         type: 'click',
         xPct,
         yPct,
-        muted: remoteSoundMuted,
+        muted: remoteSoundMuted || muteAllSound,
+        hideCursor: hideUsthadCursor,
         teacherName: 'Ustadh Anshad',
         timestamp: Date.now(),
       },
     }).catch(() => {})
 
-    if (!remoteSoundMuted) {
+    if (!remoteSoundMuted && !muteAllSound) {
       playClick()
     }
     setTeacherClicks(prev => [{ id: Date.now(), x: xPct, y: yPct }, ...prev.slice(0, 5)])
     setActivityFeed(prev => [
-      `🎮 Remote Click dispatched at (${Math.round(xPct)}%, ${Math.round(yPct)}%) to ${student.display_name}${remoteSoundMuted ? ' (muted)' : ''}`,
+      `🎮 Remote Click at (${Math.round(xPct)}%, ${Math.round(yPct)}%) to ${student.display_name}${hideUsthadCursor ? ' (cursor hidden on phone 🙈)' : ''}`,
       ...prev.slice(0, 8),
     ])
 
@@ -461,6 +474,43 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
     setActivityFeed(prev => [`Requested instant screen snapshot from ${student.display_name}...`, ...prev.slice(0, 8)])
   }
 
+  const toggleHideUsthadCursor = () => {
+    setHideUsthadCursor(prev => {
+      const next = !prev
+      try {
+        localStorage.setItem('arabic_hide_usthad_cursor', String(next))
+      } catch {}
+      setActivityFeed(f => [
+        next ? `🙈 Usthad cursor is now HIDDEN on student phone` : `👁️ Usthad cursor is now VISIBLE on student phone`,
+        ...f.slice(0, 8),
+      ])
+      return next
+    })
+  }
+
+  const toggleMuteAllSound = () => {
+    setMuteAllSound(prev => {
+      const next = !prev
+      // Broadcast to student device to sync mute state
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: 'teacher_remote_control',
+        payload: {
+          type: 'set_sound',
+          muted: next,
+          teacherName: 'Ustadh Anshad',
+          timestamp: Date.now(),
+        },
+      }).catch(() => {})
+
+      setActivityFeed(f => [
+        next ? `🔇 Muted all sounds (both watcher & student phone)` : `🔊 Unmuted all sounds (both watcher & student phone)`,
+        ...f.slice(0, 8),
+      ])
+      return next
+    })
+  }
+
   const sendReaction = (emoji: string) => {
     channelRef.current?.send({
       type: 'broadcast',
@@ -469,19 +519,23 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
     }).catch(() => {})
 
     setSentReaction(emoji)
-    playStar()
+    if (!muteAllSound) {
+      playStar()
+    }
     setTimeout(() => setSentReaction(null), 2000)
     setActivityFeed(prev => [`Sent encouragement ${emoji} to ${student.display_name}!`, ...prev.slice(0, 8)])
   }
 
   const speakEncouragement = () => {
-    playCorrect()
-    if ('speechSynthesis' in window) {
-      const phrase = `أحسنتِ يا ${student.display_name}! ما شاء الله ممتاز!`
-      const utterance = new SpeechSynthesisUtterance(phrase)
-      utterance.lang = 'ar-SA'
-      utterance.rate = 0.9
-      window.speechSynthesis.speak(utterance)
+    if (!muteAllSound) {
+      playCorrect()
+      if ('speechSynthesis' in window) {
+        const phrase = `أحسنتِ يا ${student.display_name}! ما شاء الله ممتاز!`
+        const utterance = new SpeechSynthesisUtterance(phrase)
+        utterance.lang = 'ar-SA'
+        utterance.rate = 0.9
+        window.speechSynthesis.speak(utterance)
+      }
     }
     sendReaction('🌟')
   }
@@ -531,10 +585,38 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                       ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 ring-2 ring-amber-400/30 shadow'
                       : 'bg-slate-800 text-slate-400 border-slate-700'
                   }`}
-                  title="Click to toggle remote control"
+                  title="Click to toggle remote assist"
                 >
                   <Gamepad2 className="w-3.5 h-3.5 text-amber-400" />
                   <span>Remote Assist: {remoteControlActive ? 'ON' : 'OFF'}</span>
+                </button>
+
+                {/* Usthad Cursor Indicator Badge */}
+                <button
+                  onClick={toggleHideUsthadCursor}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border transition-all ${
+                    hideUsthadCursor
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                      : 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                  }`}
+                  title="Click to toggle Usthad cursor visibility on student phone"
+                >
+                  {hideUsthadCursor ? <EyeOff className="w-3.5 h-3.5 text-purple-400" /> : <Eye className="w-3.5 h-3.5 text-blue-400" />}
+                  <span>Usthad Cursor: {hideUsthadCursor ? 'Hidden 🙈' : 'Shown 👁️'}</span>
+                </button>
+
+                {/* Sound Mute Badge */}
+                <button
+                  onClick={toggleMuteAllSound}
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 border transition-all ${
+                    muteAllSound
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  }`}
+                  title="Click to toggle mute all sounds"
+                >
+                  {muteAllSound ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                  <span>Sound: {muteAllSound ? 'All Muted 🔇' : 'ON 🔊'}</span>
                 </button>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -567,198 +649,253 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
         {/* Main Display Body */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 min-h-0 bg-slate-950">
           {/* Left: Screen Viewport */}
-          <div className="lg:col-span-3 p-3 sm:p-4 flex flex-col items-center justify-between relative min-h-[400px] sm:min-h-[500px] bg-slate-900/60 overflow-hidden">
-            {/* Interactive Monitor Viewport Container */}
-            <div
-              onClick={handleScreenClick}
-              onWheel={handleWheel}
-              className={`w-full flex-1 flex items-center justify-center relative rounded-2xl overflow-hidden bg-black border-2 transition-all select-none ${
-                remoteControlActive
-                  ? 'border-amber-400/60 cursor-crosshair hover:shadow-[0_0_20px_rgba(251,191,36,0.2)]'
-                  : 'border-slate-800'
-              }`}
-            >
-              {hasVideoStream ? (
-                // 1. Direct WebRTC Video Feed
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-full object-contain max-h-[500px] pointer-events-none"
-                />
-              ) : liveSnapshot ? (
-                // 2. High-Fidelity Snapshot Image
-                <img
-                  src={liveSnapshot}
-                  alt={`${student.display_name}'s live screen`}
-                  className="w-full h-full object-contain max-h-[500px] rounded-xl pointer-events-none"
-                />
-              ) : (
-                // 3. Sync Notice Viewport
-                <div className="w-full h-full max-w-2xl aspect-[16/10] bg-slate-900 rounded-2xl flex flex-col items-center justify-center p-6 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-4xl">
-                    💻
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-white">Connecting to {student.display_name}'s Screen</h3>
-                    <p className="text-xs text-slate-400 max-w-xs mt-1">
-                      Student is connected. Live snapshots and stream frames are syncing...
-                    </p>
-                  </div>
-                  <Button size="sm" variant="primary" onClick={requestSnapshot} className="text-xs bg-teal-600 hover:bg-teal-500">
-                    Refresh Screen Snapshot 📸
-                  </Button>
-                </div>
-              )}
-
-              {/* Laser Cursor Overlay of Student */}
-              <motion.div
-                className="absolute pointer-events-none z-30 flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
-                animate={{
-                  left: `${cursorPos.xPct}%`,
-                  top: `${cursorPos.yPct}%`,
-                }}
-                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          <div className="lg:col-span-3 p-3 sm:p-4 flex flex-col items-center justify-between relative min-h-[420px] bg-slate-900/60 overflow-hidden space-y-3">
+            {/* Interactive Phone/Device Viewport Stage */}
+            <div className="w-full flex-1 flex flex-col items-center justify-center relative p-1 select-none">
+              {/* Device Frame */}
+              <div
+                className={`relative rounded-[36px] p-2 sm:p-2.5 bg-slate-900 border-4 shadow-2xl transition-all flex flex-col items-center justify-center ${
+                  remoteControlActive
+                    ? 'border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.25)]'
+                    : 'border-slate-800'
+                } ${
+                  viewportState.deviceType === 'desktop'
+                    ? 'w-full max-w-2xl aspect-[16/10]'
+                    : viewportState.deviceType === 'tablet'
+                    ? 'w-full max-w-md aspect-[4/3]'
+                    : 'w-[280px] sm:w-[310px] aspect-[9/18.5]'
+                }`}
+                style={{ maxHeight: '490px' }}
               >
-                <div className="w-6 h-6 rounded-full bg-rose-500/90 border-2 border-white shadow-lg flex items-center justify-center text-white">
-                  <MousePointer className="w-3.5 h-3.5 fill-white" />
+                {/* Device Speaker / Notch */}
+                {viewportState.deviceType !== 'desktop' && (
+                  <div className="w-20 h-3 bg-slate-950 rounded-full mb-1.5 flex items-center justify-center gap-1.5 shrink-0 shadow-inner">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-800" />
+                    <div className="w-7 h-1 rounded-full bg-slate-800" />
+                  </div>
+                )}
+
+                {/* Inner Screen Display (Where student screen is rendered) */}
+                <div
+                  onClick={handleScreenClick}
+                  onWheel={handleWheel}
+                  className={`relative w-full flex-1 rounded-[24px] overflow-hidden bg-black flex items-center justify-center ${
+                    remoteControlActive ? 'cursor-crosshair' : 'cursor-default'
+                  }`}
+                >
+                  {hasVideoStream ? (
+                    // 1. Direct WebRTC Video Feed
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-contain pointer-events-none"
+                    />
+                  ) : liveSnapshot ? (
+                    // 2. High-Fidelity Snapshot Image
+                    <img
+                      src={liveSnapshot}
+                      alt={`${student.display_name}'s live screen`}
+                      className="w-full h-full object-contain pointer-events-none"
+                    />
+                  ) : (
+                    // 3. Sync Notice Viewport
+                    <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center p-4 text-center space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-brand-blue/20 flex items-center justify-center text-3xl">
+                        📱
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-white">Connecting to {student.display_name}</h3>
+                        <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
+                          Student live snapshots and stream frames are syncing...
+                        </p>
+                      </div>
+                      <Button size="sm" variant="primary" onClick={requestSnapshot} className="text-xs bg-teal-600 hover:bg-teal-500 py-1 px-3">
+                        Refresh Screen Snapshot 📸
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Laser Cursor Overlay of Student — Anchored inside the phone screen */}
+                  <motion.div
+                    className="absolute pointer-events-none z-30 flex items-center gap-1 -translate-x-1/2 -translate-y-1/2"
+                    animate={{
+                      left: `${cursorPos.xPct}%`,
+                      top: `${cursorPos.yPct}%`,
+                    }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-rose-500/90 border-2 border-white shadow-lg flex items-center justify-center text-white">
+                      <MousePointer className="w-3.5 h-3.5 fill-white" />
+                    </div>
+                    <span className="px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-bold text-white shadow whitespace-nowrap">
+                      {student.display_name}
+                    </span>
+                  </motion.div>
+
+                  {/* Student Clicks Ripples */}
+                  {recentClicks.map(c => (
+                    <motion.div
+                      key={c.id}
+                      initial={{ scale: 0, opacity: 1 }}
+                      animate={{ scale: 3.5, opacity: 0 }}
+                      transition={{ duration: 0.8 }}
+                      className="absolute pointer-events-none w-10 h-10 rounded-full border-4 border-rose-400 bg-rose-400/30 -translate-x-1/2 -translate-y-1/2 z-20"
+                      style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                    />
+                  ))}
+
+                  {/* Teacher Remote Clicks Ripples (Golden) */}
+                  {teacherClicks.map(c => (
+                    <motion.div
+                      key={c.id}
+                      initial={{ scale: 0, opacity: 1 }}
+                      animate={{ scale: 4, opacity: 0 }}
+                      transition={{ duration: 0.9 }}
+                      className="absolute pointer-events-none w-12 h-12 rounded-full border-4 border-amber-300 bg-amber-400/40 -translate-x-1/2 -translate-y-1/2 z-40 flex items-center justify-center text-[10px] font-black text-amber-200"
+                      style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                    />
+                  ))}
+
+                  {/* Remote Control Active Banner Overlay on Screen */}
+                  {remoteControlActive && (
+                    <div className="absolute top-2 right-2 bg-amber-500/95 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-black text-slate-950 border border-amber-300 shadow flex items-center gap-1 pointer-events-none">
+                      <Hand className="w-3 h-3 animate-bounce" />
+                      <span>TAP SCREEN TO ASSIST</span>
+                    </div>
+                  )}
                 </div>
-                <span className="px-1.5 py-0.5 rounded bg-black/80 text-[10px] font-bold text-white shadow whitespace-nowrap">
-                  {student.display_name}
-                </span>
-              </motion.div>
-
-              {/* Student Clicks Ripples */}
-              {recentClicks.map(c => (
-                <motion.div
-                  key={c.id}
-                  initial={{ scale: 0, opacity: 1 }}
-                  animate={{ scale: 3.5, opacity: 0 }}
-                  transition={{ duration: 0.8 }}
-                  className="absolute pointer-events-none w-10 h-10 rounded-full border-4 border-rose-400 bg-rose-400/30 -translate-x-1/2 -translate-y-1/2 z-20"
-                  style={{ left: `${c.x}%`, top: `${c.y}%` }}
-                />
-              ))}
-
-              {/* Teacher Remote Clicks Ripples (Golden) */}
-              {teacherClicks.map(c => (
-                <motion.div
-                  key={c.id}
-                  initial={{ scale: 0, opacity: 1 }}
-                  animate={{ scale: 4, opacity: 0 }}
-                  transition={{ duration: 0.9 }}
-                  className="absolute pointer-events-none w-12 h-12 rounded-full border-4 border-amber-300 bg-amber-400/40 -translate-x-1/2 -translate-y-1/2 z-40 flex items-center justify-center text-[10px] font-black text-amber-200"
-                  style={{ left: `${c.x}%`, top: `${c.y}%` }}
-                />
-              ))}
-
-              {/* Remote Control Active Banner Overlay on Screen */}
-              {remoteControlActive && (
-                <div className="absolute top-3 right-3 bg-amber-500/90 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-slate-950 border border-amber-300 shadow-lg flex items-center gap-1.5 pointer-events-none">
-                  <Hand className="w-3.5 h-3.5 animate-bounce" />
-                  <span>CLICK SCREEN TO TAP FOR STUDENT</span>
-                </div>
-              )}
+              </div>
             </div>
 
-            {/* Bottom Controls Bar */}
-            <div className="w-full mt-3 flex items-center justify-between gap-3 px-1 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setRemoteControlActive(!remoteControlActive)}
-                  className={`text-xs flex items-center gap-1.5 ${
-                    remoteControlActive
-                      ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold hover:bg-amber-400'
-                      : 'bg-slate-800 text-slate-300 border-slate-700'
-                  }`}
-                >
-                  <Gamepad2 className="w-3.5 h-3.5" />
-                  <span>Remote Assist: {remoteControlActive ? 'Active' : 'Paused'}</span>
-                </Button>
+            {/* Bottom Controls Bar — Clean 2-Row Layout */}
+            <div className="w-full bg-slate-950/80 p-2 sm:p-2.5 rounded-2xl border border-slate-800 space-y-2">
+              {/* Row 1: Primary Remote & Audio Controls */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Remote Assist Toggle */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setRemoteControlActive(!remoteControlActive)}
+                    className={`text-xs flex items-center gap-1.5 py-1 px-3 ${
+                      remoteControlActive
+                        ? 'bg-amber-500 text-slate-950 border-amber-400 font-bold hover:bg-amber-400'
+                        : 'bg-slate-800 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    <Gamepad2 className="w-3.5 h-3.5" />
+                    <span>Remote Assist: {remoteControlActive ? 'ON' : 'OFF'}</span>
+                  </Button>
 
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setRemoteSoundMuted(!remoteSoundMuted)}
-                  className={`text-xs flex items-center gap-1.5 ${
-                    remoteSoundMuted
-                      ? 'bg-rose-950/70 text-rose-300 border-rose-700/60 hover:bg-rose-900'
-                      : 'bg-slate-800 text-emerald-300 border-slate-700 hover:bg-slate-700'
-                  }`}
-                  title={remoteSoundMuted ? 'Student audio is muted during remote clicks' : 'Student audio is unmuted during remote clicks'}
-                >
-                  {remoteSoundMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-                  <span>{remoteSoundMuted ? 'Muted' : 'Sound ON'}</span>
-                </Button>
+                  {/* Hide Usthad Cursor on Student Phone Toggle */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={toggleHideUsthadCursor}
+                    className={`text-xs flex items-center gap-1.5 py-1 px-3 ${
+                      hideUsthadCursor
+                        ? 'bg-purple-950 text-purple-300 border-purple-600/70 hover:bg-purple-900'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                    title={hideUsthadCursor ? 'Usthad pointer/cursor is hidden on student phone' : 'Usthad pointer/cursor is shown on student phone'}
+                  >
+                    {hideUsthadCursor ? <EyeOff className="w-3.5 h-3.5 text-purple-400" /> : <Eye className="w-3.5 h-3.5 text-slate-400" />}
+                    <span>Usthad Cursor: {hideUsthadCursor ? 'Hidden on Phone 🙈' : 'Visible 👁️'}</span>
+                  </Button>
 
-                <div className="flex items-center gap-1 bg-slate-950/90 px-2 py-1 rounded-xl border border-slate-800">
-                  <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
-                    <ArrowUpDown className="w-3 h-3 text-slate-400" /> Scroll:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoteScroll(-220)}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors flex items-center gap-0.5"
-                    title="Scroll Up on student screen"
+                  {/* Sound Mute Toggle */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={toggleMuteAllSound}
+                    className={`text-xs flex items-center gap-1.5 py-1 px-3 ${
+                      muteAllSound
+                        ? 'bg-rose-950 text-rose-300 border-rose-700 hover:bg-rose-900 font-bold'
+                        : 'bg-slate-800 text-emerald-300 border-slate-700 hover:bg-slate-700'
+                    }`}
+                    title={muteAllSound ? 'All sound is muted — Click to unmute' : 'Mute all audio for watcher & student'}
                   >
-                    <ChevronUp className="w-3 h-3 text-teal-400" /> Up
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoteScroll(220)}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors flex items-center gap-0.5"
-                    title="Scroll Down on student screen"
-                  >
-                    <ChevronDown className="w-3 h-3 text-teal-400" /> Down
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoteScroll(-99999)}
-                    className="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 transition-colors"
-                    title="Scroll to Top on student screen"
-                  >
-                    Top
-                  </button>
+                    {muteAllSound ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
+                    <span>{muteAllSound ? 'Sound: Muted 🔇' : 'Sound: ON 🔊'}</span>
+                  </Button>
                 </div>
 
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={requestSnapshot}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-teal-300 border-slate-700 flex items-center gap-1.5 shadow-sm"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Refresh View 📸</span>
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleRemoteHint}
-                  className="text-xs bg-amber-950/60 hover:bg-amber-900 text-amber-300 border-amber-700/60 flex items-center gap-1.5"
-                >
-                  <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Send Hint 💡</span>
-                </Button>
-
+                {/* Cheer in Arabic */}
                 <Button
                   size="sm"
                   variant="primary"
                   onClick={speakEncouragement}
-                  className="text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 border-0 shadow-sm"
+                  className="text-xs flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 border-0 shadow-sm py-1 px-3.5 font-bold"
                 >
-                  <Volume2 className="w-3.5 h-3.5" />
-                  <span>Cheer in Arabic</span>
+                  <Sparkles className="w-3.5 h-3.5 text-sunny-300" />
+                  <span>Cheer in Arabic 🌟</span>
                 </Button>
               </div>
 
-              {remoteFeedbackToast && (
-                <span className="text-xs font-bold text-amber-300 animate-pulse bg-amber-900/40 px-3 py-1 rounded-full border border-amber-500/40">
-                  {remoteFeedbackToast}
-                </span>
-              )}
+              {/* Row 2: Secondary Quick Actions & Navigation */}
+              <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-slate-800/80">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Scroll controls */}
+                  <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" /> Scroll:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoteScroll(-220)}
+                      className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors flex items-center gap-0.5"
+                      title="Scroll Up on student screen"
+                    >
+                      <ChevronUp className="w-3 h-3 text-teal-400" /> Up
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoteScroll(220)}
+                      className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition-colors flex items-center gap-0.5"
+                      title="Scroll Down on student screen"
+                    >
+                      <ChevronDown className="w-3 h-3 text-teal-400" /> Down
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoteScroll(-99999)}
+                      className="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-[10px] font-bold text-slate-300 transition-colors"
+                      title="Scroll to Top on student screen"
+                    >
+                      Top
+                    </button>
+                  </div>
+
+                  {/* Send Hint */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={handleRemoteHint}
+                    className="text-xs bg-amber-950/60 hover:bg-amber-900 text-amber-300 border-amber-700/60 flex items-center gap-1 py-0.5 px-2.5"
+                  >
+                    <Lightbulb className="w-3 h-3 text-amber-400" />
+                    <span>Send Hint 💡</span>
+                  </Button>
+
+                  {/* Refresh Snapshot */}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={requestSnapshot}
+                    className="text-xs bg-slate-900 hover:bg-slate-800 text-teal-300 border-slate-700 flex items-center gap-1 py-0.5 px-2.5 shadow-sm"
+                  >
+                    <RotateCcw className="w-3 h-3 text-teal-400" />
+                    <span>Refresh View 📸</span>
+                  </Button>
+                </div>
+
+                {remoteFeedbackToast && (
+                  <span className="text-xs font-bold text-amber-300 animate-pulse bg-amber-950 px-3 py-0.5 rounded-full border border-amber-500/40">
+                    {remoteFeedbackToast}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -880,9 +1017,15 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                 </span>
               </div>
               <div className="flex justify-between text-slate-300 text-xs">
-                <span>Remote Audio:</span>
-                <span className={`font-bold ${remoteSoundMuted ? 'text-rose-400' : 'text-emerald-400'}`}>
-                  {remoteSoundMuted ? 'Muted 🔇' : 'Unmuted 🔊'}
+                <span>Usthad Cursor:</span>
+                <span className={`font-bold ${hideUsthadCursor ? 'text-purple-400' : 'text-blue-400'}`}>
+                  {hideUsthadCursor ? 'Hidden on Phone 🙈' : 'Visible 👁️'}
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-300 text-xs">
+                <span>Audio Mode:</span>
+                <span className={`font-bold ${muteAllSound ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  {muteAllSound ? 'All Muted 🔇' : 'Sound ON 🔊'}
                 </span>
               </div>
             </div>

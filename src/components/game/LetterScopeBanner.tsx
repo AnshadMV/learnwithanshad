@@ -35,49 +35,47 @@ export default function LetterScopeBanner({
   }
 
   return (
-    <div className="relative mb-4">
-      <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 rounded-2xl p-3 sm:p-4 text-white shadow-md flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-arabic text-2xl sm:text-3xl font-bold shadow-inner border border-white/30">
+    <div className="relative mb-3">
+      <div className="bg-white/95 rounded-2xl p-2 sm:p-2.5 border-2 border-blue-200 shadow-sm flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-amber-300 to-yellow-400 text-slate-900 font-arabic text-xl sm:text-2xl font-black shadow-sm flex items-center justify-center shrink-0">
             {letter ? letter.letter : '🌟'}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] sm:text-xs uppercase font-extrabold tracking-wider bg-white/20 px-2 py-0.5 rounded-full border border-white/20">
-                {letter ? 'Letter Focus' : 'All Alphabet'}
+          <div className="leading-tight">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">
+                {letter ? 'Letter Focus' : 'All Letters'}
               </span>
-              <span className="text-xs text-white/80 hidden sm:inline">Letter-Specific Learning</span>
             </div>
-            <h3 className="text-sm sm:text-base font-black flex items-center gap-2">
+            <div className="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-1">
               {letter ? (
                 <>
-                  <span>Practicing:</span>
-                  <span className="text-sunny-300 font-bold">{letter.name_english}</span>
-                  <span className="font-arabic text-lg font-bold text-white" dir="rtl">({letter.name_arabic})</span>
+                  <span className="text-brand-blue">{letter.name_english}</span>
+                  <span className="font-arabic font-bold text-amber-600" dir="rtl">({letter.name_arabic})</span>
                 </>
               ) : (
-                <span>Practicing All Arabic Alphabet</span>
+                <span>All Alphabet</span>
               )}
-            </h3>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setOpenPicker(!openPicker)}
-            className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md px-3 py-1.5 rounded-xl text-xs font-bold transition-all border border-white/30 shadow-sm"
+            className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-brand-blue px-2.5 py-1 rounded-xl text-xs font-black transition-all border border-blue-200 shadow-sm"
           >
-            <span>{letter ? 'Change Letter' : 'Pick a Letter'}</span>
-            <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', openPicker && 'rotate-180')} />
+            <span>{letter ? 'Change' : 'Pick'}</span>
+            <ChevronDown className={cn('w-3 h-3 transition-transform', openPicker && 'rotate-180')} />
           </button>
 
           {letter && (
             <button
               onClick={() => handleSelectLetter(null)}
-              className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors"
-              title="Switch to all alphabet"
+              className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              title="Reset to all letters"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

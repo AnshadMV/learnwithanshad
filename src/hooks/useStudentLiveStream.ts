@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import html2canvas from 'html2canvas'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { useSound } from '@/hooks/useSound'
+import { useSound, setGlobalMute } from '@/hooks/useSound'
 import { useConfetti } from '@/hooks/useConfetti'
 
 export function getDeviceInfo() {
@@ -382,7 +382,7 @@ export function useStudentLiveStream() {
         setTimeout(() => setIncomingReaction(null), 3500)
       })
 
-      // Teacher remote control (click / navigate / hint)
+      // Teacher remote control (click / navigate / hint / sound)
       .on('broadcast', { event: 'teacher_remote_control' }, ({ payload }) => {
         if (!payload) return
 
@@ -392,19 +392,22 @@ export function useStudentLiveStream() {
           const clientX = Math.round((xPct / 100) * window.innerWidth)
           const clientY = Math.round((yPct / 100) * window.innerHeight)
 
-          setRemotePointer({
-            x: clientX,
-            y: clientY,
-            teacherName: payload.teacherName || 'Ustadh Anshad',
-            id: Date.now(),
-          })
-          if (!payload.muted) {
-            playSparkle()
-          }
+          // Only display visual pointer ripple if Usthad cursor is NOT hidden
+          if (!payload.hideCursor) {
+            setRemotePointer({
+              x: clientX,
+              y: clientY,
+              teacherName: payload.teacherName || 'Ustadh Anshad',
+              id: Date.now(),
+            })
+            if (!payload.muted) {
+              playSparkle()
+            }
 
-          setTimeout(() => {
-            setRemotePointer(prev => (prev?.id === payload.timestamp ? null : prev))
-          }, 2400)
+            setTimeout(() => {
+              setRemotePointer(prev => (prev?.id === payload.timestamp ? null : prev))
+            }, 2400)
+          }
 
           // Dispatch real click to DOM element under the point
           const el = document.elementFromPoint(clientX, clientY)
@@ -448,6 +451,9 @@ export function useStudentLiveStream() {
           celebrate()
           setRemoteNotice(`Ustadh sent you a golden hint! 💡`)
           setTimeout(() => setRemoteNotice(null), 3500)
+        } else if (payload.type === 'set_sound') {
+          const shouldMute = Boolean(payload.muted)
+          setGlobalMute(shouldMute)
         }
       })
 

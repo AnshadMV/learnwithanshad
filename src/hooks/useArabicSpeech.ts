@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isGloballyMuted } from './useSound'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,6 +21,21 @@ export function useArabicSpeech(): UseArabicSpeechReturn {
   // Cache the best Arabic voice after voices load
   const arabicVoiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const [voicesLoaded, setVoicesLoaded] = useState(false)
+
+  // Listen to global mute changes
+  useEffect(() => {
+    if (!isSupported) return
+
+    const handleMute = (e: Event) => {
+      const custom = e as CustomEvent<{ isMuted: boolean }>
+      if (custom.detail?.isMuted) {
+        window.speechSynthesis.cancel()
+      }
+    }
+
+    window.addEventListener('arabic-mute-changed', handleMute)
+    return () => window.removeEventListener('arabic-mute-changed', handleMute)
+  }, [isSupported])
 
   useEffect(() => {
     if (!isSupported) return
@@ -51,6 +67,12 @@ export function useArabicSpeech(): UseArabicSpeechReturn {
   const speak = useCallback(
     (text: string) => {
       if (!isSupported || !text.trim()) return
+
+      // Always check if all sounds are muted
+      if (isGloballyMuted()) {
+        window.speechSynthesis.cancel()
+        return
+      }
 
       // Cancel any ongoing speech
       window.speechSynthesis.cancel()

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
-import { Radio, Users, Settings, LogOut, LayoutDashboard, Sparkles } from 'lucide-react'
+import { useSound } from '@/hooks/useSound'
+import { Radio, Users, Settings, LogOut, LayoutDashboard, Sparkles, Volume2, VolumeX } from 'lucide-react'
 
 interface NavLink {
   label: string
@@ -12,6 +13,7 @@ interface NavLink {
 
 export function Navbar() {
   const { user, profile, isTeacher, isStudent, signOut } = useAuth()
+  const { isMuted, toggleMute } = useSound()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const { pathname } = useLocation()
@@ -98,7 +100,26 @@ export function Navbar() {
           </div>
 
           {/* Right actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Global Sound Mute Button */}
+            <button
+              onClick={toggleMute}
+              className={cn(
+                'p-2 rounded-xl transition-all flex items-center justify-center border',
+                isMuted
+                  ? 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 shadow-sm'
+                  : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'
+              )}
+              title={isMuted ? 'All sounds muted — Click to unmute' : 'Sound ON — Click to mute all sound'}
+              aria-label={isMuted ? 'Unmute all sounds' : 'Mute all sounds'}
+            >
+              {isMuted ? (
+                <VolumeX className="w-5 h-5 text-rose-600" />
+              ) : (
+                <Volume2 className="w-5 h-5 text-emerald-600" />
+              )}
+            </button>
+
             <Link
               to="/settings"
               className="p-2 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors"

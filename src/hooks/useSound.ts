@@ -167,6 +167,24 @@ export interface UseSoundReturn {
   playFanfare: () => void
   isMuted: boolean
   toggleMute: () => void
+  setMuted: (muted: boolean) => void
+}
+
+export function isGloballyMuted(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    return localStorage.getItem(STORAGE_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function setGlobalMute(muted: boolean): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, String(muted))
+    window.dispatchEvent(new CustomEvent('arabic-mute-changed', { detail: { isMuted: muted } }))
+  } catch {}
 }
 
 export function useSound(): UseSoundReturn {
@@ -184,12 +202,27 @@ export function useSound(): UseSoundReturn {
     isMutedRef.current = isMuted
   }, [isMuted])
 
+  // Sync with global custom event
+  useEffect(() => {
+    const handleMuteChange = (e: Event) => {
+      const custom = e as CustomEvent<{ isMuted: boolean }>
+      if (typeof custom.detail?.isMuted === 'boolean') {
+        setIsMuted(custom.detail.isMuted)
+      }
+    }
+    window.addEventListener('arabic-mute-changed', handleMuteChange)
+    return () => window.removeEventListener('arabic-mute-changed', handleMuteChange)
+  }, [])
+
+  const setMuted = useCallback((muted: boolean) => {
+    setGlobalMute(muted)
+    setIsMuted(muted)
+  }, [])
+
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {
       const next = !prev
-      try {
-        localStorage.setItem(STORAGE_KEY, String(next))
-      } catch { /* ignore */ }
+      setGlobalMute(next)
       return next
     })
   }, [])
@@ -224,5 +257,6 @@ export function useSound(): UseSoundReturn {
     playFanfare,
     isMuted,
     toggleMute,
+    setMuted,
   }
 }
