@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Volume2, ChevronLeft, ChevronRight, ArrowLeft, Gamepad2, Users } from 'lucide-react'
+import { Volume2, ChevronLeft, ChevronRight, ArrowLeft, Gamepad2, Users, Trophy, Star } from 'lucide-react'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
 import { useArabicSpeech } from '@/hooks/useArabicSpeech'
+import { useArcadeProgress } from '@/hooks/useArcadeProgress'
 import { cn } from '@/lib/utils'
 import { ALL_GAMES } from '@/pages/GamesLibraryPage'
 import type { SkillTag } from '@/components/game/GameCard'
@@ -40,7 +41,9 @@ export default function LetterPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { speak, isSupported } = useArabicSpeech()
+  const { getLetterProgress } = useArcadeProgress()
   const [activeSkill, setActiveSkill] = useState<SkillTag | 'All'>('All')
+  const arcadeSummary = getLetterProgress(id || 'alef')
 
   const letter = useMemo(() => ARABIC_LETTERS.find(l => l.id === id), [id])
   const letterIndex = useMemo(
@@ -220,6 +223,62 @@ export default function LetterPage() {
               <Volume2 className="w-4 h-4" /> Hear the letter
             </button>
           )}
+        </motion.section>
+
+        {/* ── 10-Level Letter Arcade Feature Banner ── */}
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.39 }}
+          className="rounded-3xl bg-gradient-to-r from-indigo-900 via-purple-900 to-amber-700 p-6 text-white shadow-xl border-2 border-amber-300/50 space-y-4"
+        >
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-300 to-orange-500 text-slate-950 font-arabic text-4xl font-black flex items-center justify-center shadow-lg shrink-0" dir="rtl">
+                {letter.letter}
+              </div>
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/25 text-amber-200 text-[11px] font-black uppercase">
+                  <Trophy className="w-3.5 h-3.5" /> 10-Level Arcade Quest
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black mt-1">
+                  Play {letter.name_english} Arcade (Levels 1–10)
+                </h2>
+                <p className="text-xs sm:text-sm text-blue-100 mt-0.5">
+                  Start with Level 1 Mole Hit (10s timer, 10 waves), Level 2 Arrow Maze Chase & unlock all 10 challenges!
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 bg-white/15 px-4 py-2 rounded-2xl border border-white/20 shrink-0">
+              <Star className="w-5 h-5 fill-amber-300 text-amber-300" />
+              <div className="text-xs font-bold">
+                <div className="text-amber-200">{arcadeSummary.completedCount}/10 Levels</div>
+                <div>{arcadeSummary.totalStars}/30 Stars</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              to={`/games/letter-arcade?letter=${letter.id}&level=1`}
+              className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm shadow transition-all"
+            >
+              🐹 Level 1: Mole Hit (10s)
+            </Link>
+            <Link
+              to={`/games/letter-arcade?letter=${letter.id}&level=2`}
+              className="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs sm:text-sm shadow border border-indigo-300/40 transition-all"
+            >
+              🛸 Level 2: Arrow Maze
+            </Link>
+            <Link
+              to={`/games/letter-arcade?letter=${letter.id}`}
+              className="px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs sm:text-sm border border-white/30 transition-all"
+            >
+              Open Full 10-Level Map →
+            </Link>
+          </div>
         </motion.section>
 
         {/* ── Dynamic Letter-Scoped Game Hub ── */}

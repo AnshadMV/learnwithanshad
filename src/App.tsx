@@ -76,6 +76,7 @@ const DotPlacementGame = lazy(() => import('@/pages/games/DotPlacementGame'))
 const SisterShowdownGame = lazy(() => import('@/pages/games/SisterShowdownGame'))
 const ConveyorSorterGame = lazy(() => import('@/pages/games/ConveyorSorterGame'))
 const TrainSequencerGame = lazy(() => import('@/pages/games/TrainSequencerGame'))
+const LetterArcadeGame = lazy(() => import('@/pages/games/LetterArcadeGame'))
 
 function LoadingScreen() {
   return (
@@ -203,6 +204,13 @@ function AppRoutes() {
         <Route path="/games/sister-showdown" element={<Layout><SisterShowdownGame /></Layout>} />
         <Route path="/games/conveyor-sorter" element={<Layout><ConveyorSorterGame /></Layout>} />
         <Route path="/games/train-sequencer" element={<Layout><TrainSequencerGame /></Layout>} />
+
+        {/* 10-Level Letter Arcade & Highlight Levels */}
+        <Route path="/games/letter-arcade" element={<Layout><LetterArcadeGame /></Layout>} />
+        <Route path="/games/mole-hit-arcade" element={<Layout><LetterArcadeGame defaultLevel={1} customSlug="mole-hit-arcade" /></Layout>} />
+        <Route path="/games/maze-arrow-chase" element={<Layout><LetterArcadeGame defaultLevel={2} customSlug="maze-arrow-chase" /></Layout>} />
+        <Route path="/games/sky-arrow-flight" element={<Layout><LetterArcadeGame defaultLevel={4} customSlug="sky-arrow-flight" /></Layout>} />
+        <Route path="/games/quiz-show-blitz" element={<Layout><LetterArcadeGame defaultLevel={7} customSlug="quiz-show-blitz" /></Layout>} />
 
         {/* 404 */}
         <Route path="*" element={<Layout><NotFoundPage /></Layout>} />

@@ -29,6 +29,8 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useSound } from '@/hooks/useSound'
 import { ARABIC_LETTERS } from '@/data/arabicLetters'
+import type { ArcadeDifficulty, ArcadeLetterMode } from '@/data/arcadeLevels'
+import TeacherArcadeControlPanel from '@/components/arcade/TeacherArcadeControlPanel'
 import Button from '@/components/ui/Button'
 
 interface TeacherLiveScreenWatcherProps {
@@ -60,6 +62,16 @@ interface ViewportState {
   accuracy: number
   status: string
   lastUpdated: string
+  arcadeLevel?: number
+  arcadeLevelTitle?: string
+  arcadeWave?: number
+  arcadeTotalWaves?: number
+  arcadeTimeLeft?: number
+  arcadeDifficulty?: ArcadeDifficulty
+  arcadeLetterMode?: ArcadeLetterMode
+  arcadeLives?: number
+  arcadePaused?: boolean
+  arcadeLockedLevel?: number | null
   isMobile?: boolean
   isTablet?: boolean
   isDesktop?: boolean
@@ -67,6 +79,11 @@ interface ViewportState {
 }
 
 const CONTROL_GAMES = [
+  { slug: 'letter-arcade', name: '10-Level Letter Arcade 🕹️' },
+  { slug: 'mole-hit-arcade', name: 'Level 1: Mole Hit Blitz (10s) 🐹' },
+  { slug: 'maze-arrow-chase', name: 'Level 2: Arrow Maze Chase 🛸' },
+  { slug: 'sky-arrow-flight', name: 'Level 4: Sky Flyer Arrow Dash ✈️' },
+  { slug: 'quiz-show-blitz', name: 'Level 7: Game Show Quiz Blitz 🎤' },
   { slug: 'find-different', name: 'Find Different Letter 🕵️' },
   { slug: 'memory-cards', name: 'Memory Cards 🃏' },
   { slug: 'letter-detective', name: 'Letter Detective 🔎' },
@@ -213,6 +230,16 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
           score: payload.score !== undefined ? payload.score : prev.score,
           accuracy: payload.accuracy !== undefined ? payload.accuracy : prev.accuracy,
           status: payload.status || prev.status,
+          arcadeLevel: payload.arcadeLevel ?? prev.arcadeLevel,
+          arcadeLevelTitle: payload.arcadeLevelTitle ?? prev.arcadeLevelTitle,
+          arcadeWave: payload.arcadeWave ?? prev.arcadeWave,
+          arcadeTotalWaves: payload.arcadeTotalWaves ?? prev.arcadeTotalWaves,
+          arcadeTimeLeft: payload.arcadeTimeLeft ?? prev.arcadeTimeLeft,
+          arcadeDifficulty: payload.arcadeDifficulty ?? prev.arcadeDifficulty,
+          arcadeLetterMode: payload.arcadeLetterMode ?? prev.arcadeLetterMode,
+          arcadeLives: payload.arcadeLives ?? prev.arcadeLives,
+          arcadePaused: payload.arcadePaused ?? prev.arcadePaused,
+          arcadeLockedLevel: payload.arcadeLockedLevel ?? prev.arcadeLockedLevel,
           isMobile: payload.isMobile !== undefined ? payload.isMobile : prev.isMobile,
           isTablet: payload.isTablet !== undefined ? payload.isTablet : prev.isTablet,
           isDesktop: payload.isDesktop !== undefined ? payload.isDesktop : prev.isDesktop,
@@ -221,6 +248,27 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
         }))
         const gameDisplay = (payload.gameSlug || payload.game_slug || 'Letter Game').replace(/-/g, ' ')
         setActivityFeed(prev => [`Student active on ${gameDisplay}`, ...prev.slice(0, 8)])
+      })
+      .on('broadcast', { event: 'arcade_telemetry' }, ({ payload }) => {
+        if (!payload) return
+        setViewportState(prev => ({
+          ...prev,
+          gameSlug: payload.gameSlug || prev.gameSlug,
+          letterId: payload.letterId || prev.letterId,
+          score: payload.score !== undefined ? payload.score : prev.score,
+          accuracy: payload.accuracy !== undefined ? payload.accuracy : prev.accuracy,
+          arcadeLevel: payload.level ?? prev.arcadeLevel,
+          arcadeLevelTitle: payload.levelTitle ?? prev.arcadeLevelTitle,
+          arcadeWave: payload.wave ?? prev.arcadeWave,
+          arcadeTotalWaves: payload.totalWaves ?? prev.arcadeTotalWaves,
+          arcadeTimeLeft: payload.timeLeft ?? prev.arcadeTimeLeft,
+          arcadeDifficulty: payload.difficulty ?? prev.arcadeDifficulty,
+          arcadeLetterMode: payload.letterMode ?? prev.arcadeLetterMode,
+          arcadeLives: payload.lives ?? prev.arcadeLives,
+          arcadePaused: payload.paused ?? prev.arcadePaused,
+          arcadeLockedLevel: payload.lockedLevel ?? prev.arcadeLockedLevel,
+          lastUpdated: new Date().toLocaleTimeString(),
+        }))
       })
       .on('broadcast', { event: 'student_cursor' }, ({ payload }) => {
         if (!payload) return
@@ -619,12 +667,19 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                   <span>Sound: {muteAllSound ? 'All Muted 🔇' : 'ON 🔊'}</span>
                 </button>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Active: <strong className="text-white capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</strong>
+              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <span>
+                  Active: <strong className="text-white capitalize">{viewportState.gameSlug.replace(/-/g, ' ')}</strong>
+                </span>
                 {viewportState.letterId && (
-                  <> • Letter: <strong className="text-sunny-300 font-arabic">{viewportState.letterId}</strong></>
+                  <span>• Letter: <strong className="text-sunny-300 font-arabic">{viewportState.letterId}</strong></span>
                 )}
-                {' '}• Score: <strong className="text-emerald-400">{viewportState.score} pts</strong>
+                <span>• Score: <strong className="text-emerald-400">{viewportState.score} pts</strong></span>
+                {viewportState.arcadeLevel && (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-[10px] font-black">
+                    🕹️ L{viewportState.arcadeLevel}/10 • Wave {viewportState.arcadeWave || 1}/{viewportState.arcadeTotalWaves || 10} • {viewportState.arcadeTimeLeft ?? 10}s • {viewportState.arcadeDifficulty || 'adaptive'}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -958,6 +1013,20 @@ export default function TeacherLiveScreenWatcher({ student, onClose }: TeacherLi
                   </Button>
                 </div>
               </div>
+
+              {/* 10-Level Arcade Live Control Station */}
+              <TeacherArcadeControlPanel
+                mode="student"
+                studentId={student.student_id}
+                studentName={student.display_name}
+                initialLetterId={viewportState.letterId || 'alef'}
+                initialLevel={viewportState.arcadeLevel || 1}
+                currentDifficulty={viewportState.arcadeDifficulty || 'adaptive'}
+                currentLetterMode={viewportState.arcadeLetterMode || 'mixed'}
+                currentPaused={Boolean(viewportState.arcadePaused)}
+                compact
+                onCommandSent={(msg) => setActivityFeed(prev => [msg, ...prev.slice(0, 8)])}
+              />
 
               {/* Instant Encouragement */}
               <div>

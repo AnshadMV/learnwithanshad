@@ -21,6 +21,7 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import ArabicText from '@/components/arabic/ArabicText'
 import TeacherLiveScreenWatcher from '@/components/live/TeacherLiveScreenWatcher'
+import TeacherArcadeControlPanel from '@/components/arcade/TeacherArcadeControlPanel'
 
 interface LiveStudent {
   student_id: string
@@ -32,6 +33,15 @@ interface LiveStudent {
   questions_completed: number
   status: 'playing' | 'idle' | 'completed'
   last_heartbeat: string
+  arcade_level?: number
+  arcade_level_title?: string
+  arcade_wave?: number
+  arcade_total_waves?: number
+  arcade_time_left?: number
+  arcade_difficulty?: string
+  arcade_letter_mode?: string
+  arcade_lives?: number
+  arcade_paused?: boolean
 }
 
 export default function LiveMonitorPage() {
@@ -246,6 +256,15 @@ export default function LiveMonitorPage() {
             accuracy: payload.accuracy,
             questions_completed: payload.questions_completed,
             status: payload.status,
+            arcade_level: payload.arcade_level,
+            arcade_level_title: payload.arcade_level_title,
+            arcade_wave: payload.arcade_wave,
+            arcade_total_waves: payload.arcade_total_waves,
+            arcade_time_left: payload.arcade_time_left,
+            arcade_difficulty: payload.arcade_difficulty,
+            arcade_letter_mode: payload.arcade_letter_mode,
+            arcade_lives: payload.arcade_lives,
+            arcade_paused: payload.arcade_paused,
             last_heartbeat: payload.timestamp || new Date().toISOString(),
           }
 
@@ -278,6 +297,15 @@ export default function LiveMonitorPage() {
               current_letter: payload.letterId || payload.letter_id || next[existingIdx].current_letter,
               score: payload.score !== undefined ? payload.score : next[existingIdx].score,
               accuracy: payload.accuracy !== undefined ? payload.accuracy : next[existingIdx].accuracy,
+              arcade_level: payload.arcadeLevel ?? next[existingIdx].arcade_level,
+              arcade_level_title: payload.arcadeLevelTitle ?? next[existingIdx].arcade_level_title,
+              arcade_wave: payload.arcadeWave ?? next[existingIdx].arcade_wave,
+              arcade_total_waves: payload.arcadeTotalWaves ?? next[existingIdx].arcade_total_waves,
+              arcade_time_left: payload.arcadeTimeLeft ?? next[existingIdx].arcade_time_left,
+              arcade_difficulty: payload.arcadeDifficulty ?? next[existingIdx].arcade_difficulty,
+              arcade_letter_mode: payload.arcadeLetterMode ?? next[existingIdx].arcade_letter_mode,
+              arcade_lives: payload.arcadeLives ?? next[existingIdx].arcade_lives,
+              arcade_paused: payload.arcadePaused ?? next[existingIdx].arcade_paused,
               status: 'playing',
               last_heartbeat: new Date().toISOString(),
             }
@@ -293,10 +321,65 @@ export default function LiveMonitorPage() {
             score: payload.score || 0,
             accuracy: payload.accuracy !== undefined ? payload.accuracy : 100,
             questions_completed: 0,
+            arcade_level: payload.arcadeLevel,
+            arcade_level_title: payload.arcadeLevelTitle,
+            arcade_wave: payload.arcadeWave,
+            arcade_total_waves: payload.arcadeTotalWaves,
+            arcade_time_left: payload.arcadeTimeLeft,
+            arcade_difficulty: payload.arcadeDifficulty,
+            arcade_letter_mode: payload.arcadeLetterMode,
+            arcade_lives: payload.arcadeLives,
+            arcade_paused: payload.arcadePaused,
             status: 'playing',
             last_heartbeat: new Date().toISOString(),
           }
           return [newItem, ...prev]
+        })
+      })
+      .on('broadcast', { event: 'arcade_telemetry' }, ({ payload }) => {
+        if (!payload || !payload.student_id) return
+        setLiveStudents(prev => {
+          const existingIdx = prev.findIndex(s =>
+            s.student_id === payload.student_id ||
+            (payload.display_name && s.display_name.trim().toLowerCase() === payload.display_name.trim().toLowerCase())
+          )
+          const patch: Partial<LiveStudent> = {
+            current_game: payload.gameSlug || 'letter-arcade',
+            current_letter: payload.letterId,
+            score: payload.score,
+            accuracy: payload.accuracy,
+            arcade_level: payload.level,
+            arcade_level_title: payload.levelTitle,
+            arcade_wave: payload.wave,
+            arcade_total_waves: payload.totalWaves,
+            arcade_time_left: payload.timeLeft,
+            arcade_difficulty: payload.difficulty,
+            arcade_letter_mode: payload.letterMode,
+            arcade_lives: payload.lives,
+            arcade_paused: payload.paused,
+            status: payload.paused ? 'idle' : 'playing',
+            last_heartbeat: payload.updatedAt || new Date().toISOString(),
+          }
+          if (existingIdx !== -1) {
+            const next = [...prev]
+            next[existingIdx] = { ...next[existingIdx], ...patch }
+            return next
+          }
+          return [
+            {
+              student_id: payload.student_id,
+              display_name: payload.display_name || 'Student Explorer',
+              current_game: patch.current_game || 'letter-arcade',
+              current_letter: patch.current_letter || 'alef',
+              score: patch.score || 0,
+              accuracy: patch.accuracy ?? 100,
+              questions_completed: 0,
+              status: 'playing',
+              last_heartbeat: patch.last_heartbeat!,
+              ...patch,
+            },
+            ...prev,
+          ]
         })
       })
       .subscribe()
@@ -396,6 +479,16 @@ export default function LiveMonitorPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Classroom-Wide 10-Level Arcade Commander */}
+      <TeacherArcadeControlPanel
+        mode="classroom"
+        roomCode={roomCode}
+        onCommandSent={(msg) => {
+          setRecentBroadcastNotice(msg)
+          setTimeout(() => setRecentBroadcastNotice(null), 3000)
+        }}
+      />
 
       {/* Classroom Activity Grid */}
       {loading ? (
@@ -502,6 +595,17 @@ export default function LiveMonitorPage() {
                       : 'Classroom Explorer'}
                   </span>
                 </div>
+                {student.arcade_level && (
+                  <div className="flex items-center justify-between text-xs font-bold bg-amber-100/90 text-amber-900 px-2.5 py-1.5 rounded-xl border border-amber-300">
+                    <span>
+                      🕹️ Level {student.arcade_level}/10
+                      {student.arcade_wave ? ` • Wave ${student.arcade_wave}/${student.arcade_total_waves || 10}` : ''}
+                    </span>
+                    <span className="font-mono">
+                      {student.arcade_paused ? '⏸️ Paused' : `${student.arcade_time_left ?? 10}s • ${student.arcade_difficulty || 'auto'}`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-xs font-semibold text-gray-500">
                   <span>Score:</span>
                   <span className="text-emerald-600 font-extrabold text-sm">{student.score} pts</span>

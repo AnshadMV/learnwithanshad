@@ -178,7 +178,15 @@ export default function TeacherDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="sunny"
+            onClick={() => navigate('/games/letter-arcade')}
+            className="flex items-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>10-Level Arcade Control</span>
+          </Button>
           <Button
             variant="primary"
             onClick={() => navigate(classrooms.length > 0 ? `/teacher/live?room=${classrooms[0].invite_code}` : '/teacher/live')}

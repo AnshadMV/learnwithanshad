@@ -105,6 +105,16 @@ export function useStudentLiveStream() {
       score: globalState.score || 0,
       accuracy: globalState.accuracy || 100,
       status: globalState.status || (pathname.startsWith('/games') ? 'playing' : 'idle'),
+      arcadeLevel: globalState.level,
+      arcadeLevelTitle: globalState.levelName,
+      arcadeWave: globalState.wave,
+      arcadeTotalWaves: globalState.totalWaves,
+      arcadeTimeLeft: globalState.timeLeft,
+      arcadeDifficulty: globalState.difficulty,
+      arcadeLetterMode: globalState.letterMode,
+      arcadeLives: globalState.lives,
+      arcadePaused: globalState.paused,
+      arcadeLockedLevel: globalState.lockedLevel,
       isMobile: dev.isMobile,
       isTablet: dev.isTablet,
       isDesktop: dev.isDesktop,
@@ -450,10 +460,33 @@ export function useStudentLiveStream() {
           playSparkle()
           celebrate()
           setRemoteNotice(`Ustadh sent you a golden hint! 💡`)
+          window.dispatchEvent(new CustomEvent('arabic-arcade-remote-command', { detail: { hintSeq: Date.now(), ...payload } }))
           setTimeout(() => setRemoteNotice(null), 3500)
         } else if (payload.type === 'set_sound') {
           const shouldMute = Boolean(payload.muted)
           setGlobalMute(shouldMute)
+        } else if (payload.type === 'arcade_control') {
+          playSparkle()
+          window.dispatchEvent(new CustomEvent('arabic-arcade-remote-command', { detail: payload }))
+          if (payload.hintSeq) {
+            celebrate()
+            setRemoteNotice(`Ustadh sent you a golden hint! 💡`)
+          } else if (payload.paused === true) {
+            setRemoteNotice(`Ustadh paused the arcade level ⏸️`)
+          } else if (payload.paused === false) {
+            setRemoteNotice(`Ustadh resumed your arcade level ▶️`)
+          } else if (payload.bonusTimeSeq) {
+            setRemoteNotice(`Ustadh gave you +${payload.bonusTimeSec || 5}s bonus time! ⏱️`)
+          } else if (payload.autoNavigate && payload.url) {
+            setRemoteNotice(`Ustadh launched Arcade Level ${payload.level || 1}! 🎮`)
+            if (!window.location.pathname.includes('/games/letter-arcade') || payload.forceNavigate) {
+              navigate(payload.url)
+            }
+          } else {
+            setRemoteNotice(`Ustadh updated your Arcade settings! 🎮`)
+          }
+          setTimeout(() => setRemoteNotice(null), 3500)
+          setTimeout(captureAndSendDomSnapshot, 450)
         }
       })
 

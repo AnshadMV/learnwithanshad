@@ -92,9 +92,11 @@ export function useGameSession({ gameSlug, letterId }: GameSessionOptions): UseG
     setStatus('playing')
 
     try {
-      (window as any).__ARABIC_ACTIVE_GAME__ = {
+      const prev = (window as any).__ARABIC_ACTIVE_GAME__ || {}
+      ;(window as any).__ARABIC_ACTIVE_GAME__ = {
+        ...prev,
         gameSlug,
-        letterId: letterId ?? null,
+        letterId: letterId ?? prev.letterId ?? null,
         score: 0,
         accuracy: 100,
         questionsCompleted: 0,
@@ -103,15 +105,25 @@ export function useGameSession({ gameSlug, letterId }: GameSessionOptions): UseG
     } catch {}
 
     // Broadcast session start to Live Monitor
+    const activeExtra = (window as any).__ARABIC_ACTIVE_GAME__ || {}
     broadcastLiveActivity({
       student_id: user?.id || 'guest_student',
       display_name: profile?.display_name || 'Little Explorer',
       game_slug: gameSlug,
-      letter_id: letterId ?? null,
+      letter_id: letterId ?? activeExtra.letterId ?? null,
       score: 0,
       questions_completed: 0,
       accuracy: 100,
       status: 'playing',
+      arcade_level: activeExtra.level,
+      arcade_level_title: activeExtra.levelName,
+      arcade_wave: activeExtra.wave,
+      arcade_total_waves: activeExtra.totalWaves,
+      arcade_time_left: activeExtra.timeLeft,
+      arcade_difficulty: activeExtra.difficulty,
+      arcade_letter_mode: activeExtra.letterMode,
+      arcade_lives: activeExtra.lives,
+      arcade_paused: activeExtra.paused,
       timestamp: now.toISOString(),
     })
   }, [user?.id, profile?.display_name, gameSlug, letterId])
@@ -131,9 +143,11 @@ export function useGameSession({ gameSlug, letterId }: GameSessionOptions): UseG
       const acc = calculateAccuracy(correctRef.current, totalRef.current)
 
       try {
-        (window as any).__ARABIC_ACTIVE_GAME__ = {
+        const prev = (window as any).__ARABIC_ACTIVE_GAME__ || {}
+        ;(window as any).__ARABIC_ACTIVE_GAME__ = {
+          ...prev,
           gameSlug,
-          letterId: letterId ?? null,
+          letterId: letterId ?? prev.letterId ?? null,
           score: scoreRef.current,
           accuracy: acc,
           questionsCompleted: correctRef.current,
@@ -142,15 +156,25 @@ export function useGameSession({ gameSlug, letterId }: GameSessionOptions): UseG
       } catch {}
 
       // Broadcast live event on each answer
+      const activeExtra = (window as any).__ARABIC_ACTIVE_GAME__ || {}
       broadcastLiveActivity({
         student_id: user?.id || 'guest_student',
         display_name: profile?.display_name || 'Little Explorer',
         game_slug: gameSlug,
-        letter_id: letterId ?? null,
+        letter_id: letterId ?? activeExtra.letterId ?? null,
         score: scoreRef.current,
         questions_completed: correctRef.current,
         accuracy: acc,
         status: 'playing',
+        arcade_level: activeExtra.level,
+        arcade_level_title: activeExtra.levelName,
+        arcade_wave: activeExtra.wave,
+        arcade_total_waves: activeExtra.totalWaves,
+        arcade_time_left: activeExtra.timeLeft,
+        arcade_difficulty: activeExtra.difficulty,
+        arcade_letter_mode: activeExtra.letterMode,
+        arcade_lives: activeExtra.lives,
+        arcade_paused: activeExtra.paused,
         timestamp: new Date().toISOString(),
       })
     },

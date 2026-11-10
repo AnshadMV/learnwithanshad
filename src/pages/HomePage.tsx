@@ -180,6 +180,12 @@ export default function HomePage() {
             Start Learning!
           </Link>
           <Link
+            to="/games/letter-arcade"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-95 text-white font-extrabold text-lg sm:text-xl px-8 py-3.5 rounded-2xl shadow-lg shadow-amber-300 transition-all duration-200"
+          >
+            <span>🕹️ 10-Level Arcade</span>
+          </Link>
+          <Link
             to="/join"
             className="inline-flex items-center gap-2 bg-sunny-400 hover:bg-sunny-500 active:scale-95 text-slate-900 font-extrabold text-lg sm:text-xl px-8 py-3.5 rounded-2xl shadow-lg shadow-amber-300 transition-all duration-200 border-2 border-sunny-500"
           >

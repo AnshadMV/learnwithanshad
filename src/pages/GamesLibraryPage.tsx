@@ -12,6 +12,43 @@ import { ARABIC_LETTERS } from '@/data/arabicLetters'
 // ---------------------------------------------------------------------------
 
 export const ALL_GAMES: GameCardInfo[] = [
+  // ── 10-Level Arabic Letter Arcade & Highlights ────────────────────────────
+  {
+    slug: 'letter-arcade',
+    name: '10-Level Letter Arcade',
+    description: 'Complete 10 progressive levels for every Arabic letter — Mole Hit (10s), Arrow Maze, Sky Flight & Boss Arena!',
+    category: 'Arcade', skillTag: 'Arcade', ageGroup: 'all',
+    icon: '🕹️', color: '#F59E0B', supportsLetterScope: true, supportsGroupScope: false,
+  },
+  {
+    slug: 'mole-hit-arcade',
+    name: 'Level 1: Mole Hit Blitz (10 Waves)',
+    description: 'Whack the selected Arabic letter & its types popping from burrows within 10 seconds as difficulty climbs!',
+    category: 'Arcade', skillTag: 'Arcade', ageGroup: 'explorer',
+    icon: '🐹', color: '#EA580C', supportsLetterScope: true, supportsGroupScope: false,
+  },
+  {
+    slug: 'maze-arrow-chase',
+    name: 'Level 2: Cosmic Arrow Maze Chase',
+    description: 'Guide your explorer with ▲ ▼ ◀ ▶ arrow buttons through cosmic corridors to reach the target Arabic letter!',
+    category: 'Arcade', skillTag: 'Recognition', ageGroup: 'explorer',
+    icon: '🛸', color: '#6366F1', supportsLetterScope: true, supportsGroupScope: false,
+  },
+  {
+    slug: 'sky-arrow-flight',
+    name: 'Level 4: Sky Flyer Arrow Dash',
+    description: 'Use ▲ / ▼ arrow controls to steer your plane into target Arabic letter clouds and dodge storm distractors!',
+    category: 'Arcade', skillTag: 'Arcade', ageGroup: 'builder',
+    icon: '✈️', color: '#0D9488', supportsLetterScope: true, supportsGroupScope: false,
+  },
+  {
+    slug: 'quiz-show-blitz',
+    name: 'Level 7: Game Show Quiz Blitz',
+    description: 'Beat the 10-second buzzer with 50/50 & +5s lifelines testing Arabic forms, harakat, and dots!',
+    category: 'Arcade', skillTag: 'Phonics', ageGroup: 'builder',
+    icon: '🎤', color: '#7C3AED', supportsLetterScope: true, supportsGroupScope: false,
+  },
+
   // ── Recognition ──────────────────────────────────────────────────────────
   {
     slug: 'letter-safari',
@@ -455,26 +492,51 @@ export default function GamesLibraryPage() {
         </p>
       </div>
 
-      {/* ── Group Practice Hero Banner ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        onClick={() => navigate('/games/groups')}
-        className="cursor-pointer bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between gap-4 hover:scale-[1.01] transition-transform"
-      >
-        <div className="flex items-center gap-4">
-          <div className="text-5xl">👥</div>
-          <div>
-            <h2 className="text-2xl font-black">Letter Group Practice Arena</h2>
-            <p className="text-white/80 text-sm mt-0.5">
-              Study 3, 4, or 5 related letters together — Sister Showdown, Conveyor Sorter, Train Sequencer & more!
-            </p>
+      {/* ── Featured Hero Banners: 10-Level Arcade + Group Arena ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={() => navigate(activeLetter ? `/games/letter-arcade?letter=${activeLetter}` : '/games/letter-arcade')}
+          className="cursor-pointer bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between gap-4 hover:scale-[1.01] transition-transform border-2 border-amber-200/40"
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-5xl">🕹️</div>
+            <div>
+              <span className="inline-block px-2 py-0.5 rounded-full bg-white/25 text-[10px] font-black uppercase tracking-wider mb-1">
+                New • Teacher Controlled
+              </span>
+              <h2 className="text-xl sm:text-2xl font-black">10-Level Letter Arcade</h2>
+              <p className="text-white/90 text-xs sm:text-sm mt-0.5">
+                Every Arabic letter has 10 levels: 10s Mole Whack, Arrow Maze Chase, Sky Flight, Quiz Show & Boss Arena!
+              </p>
+            </div>
           </div>
-        </div>
-        <div className="shrink-0 bg-white/20 hover:bg-white/30 backdrop-blur border border-white/30 px-5 py-2.5 rounded-2xl font-bold text-sm transition-colors">
-          Open Arena →
-        </div>
-      </motion.div>
+          <div className="shrink-0 bg-slate-950/30 hover:bg-slate-950/40 backdrop-blur border border-white/30 px-4 py-2.5 rounded-2xl font-black text-xs sm:text-sm transition-colors">
+            Play 1–10 →
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          onClick={() => navigate('/games/groups')}
+          className="cursor-pointer bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500 rounded-3xl p-6 text-white shadow-xl flex items-center justify-between gap-4 hover:scale-[1.01] transition-transform"
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-5xl">👥</div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black">Letter Group Practice Arena</h2>
+              <p className="text-white/85 text-xs sm:text-sm mt-0.5">
+                Study 3, 4, or 5 related letters together — Sister Showdown, Conveyor Sorter, Train Sequencer & more!
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 bg-white/20 hover:bg-white/30 backdrop-blur border border-white/30 px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-colors">
+            Open Arena →
+          </div>
+        </motion.div>
+      </div>
 
       {/* ── Filters Panel ── */}
       <div className="bg-white rounded-3xl p-5 shadow-card space-y-4">

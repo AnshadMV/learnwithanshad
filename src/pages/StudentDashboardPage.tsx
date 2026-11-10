@@ -98,11 +98,19 @@ export default function StudentDashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3 relative z-10">
+        <div className="flex flex-wrap items-center gap-3 relative z-10">
           <Button
             variant="sunny"
-            onClick={() => navigate('/alphabet')}
+            onClick={() => navigate('/games/letter-arcade')}
             className="flex items-center gap-2 shadow-lg"
+          >
+            <Award className="w-5 h-5" />
+            <span>10-Level Arcade</span>
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => navigate('/alphabet')}
+            className="flex items-center gap-2 bg-white text-brand-blue hover:bg-blue-50 shadow"
           >
             <BookOpen className="w-5 h-5" />
             <span>Continue Lesson</span>
@@ -113,7 +121,7 @@ export default function StudentDashboardPage() {
             className="flex items-center gap-2 bg-white/20 text-white hover:bg-white/30 border-0"
           >
             <Gamepad2 className="w-5 h-5" />
-            <span>Play Games</span>
+            <span>All Games</span>
           </Button>
         </div>
       </motion.div>
